@@ -1,8 +1,10 @@
 # TÀI LIỆU THIẾT KẾ CƠ SỞ DỮ LIỆU (DATABASE DESIGN SPECIFICATION)
+
 ## Nền tảng Học tiếng Anh Trực tuyến Đa nền tảng (Web & Mobile App)
+
 **Kiến trúc:** Polyglot Persistence (Relational Database MySQL/PostgreSQL + NoSQL MongoDB)  
 **Phiên bản:** 2.1  
-**Ngày cập nhật:** 22/08/2026  
+**Ngày cập nhật:** 22/08/2026
 
 ---
 
@@ -15,7 +17,7 @@ Hệ thống áp dụng mô hình lưu trữ đa cơ sở dữ liệu (**Polyglo
    - Bao gồm: Quản lý người dùng, phân quyền (RBAC), danh mục chủ đề, bài học, tài liệu học tập, từ vựng chuẩn hóa, tiến độ học tập và quản lý minigame.
 
 2. **NoSQL Database (MongoDB - 5 Collections):**
-   - **Nghiệp vụ linh hoạt & Phân cấp (2 Collections):** 
+   - **Nghiệp vụ linh hoạt & Phân cấp (2 Collections):**
      - `minigame_questions`: Lưu trữ cấu trúc câu hỏi đa dạng (trắc nghiệm, nối từ, điền từ) dưới dạng JSON đa hình (polymorphic).
      - `comments`: Lưu trữ cây bình luận lồng nhau đa cấp (Nested/Embedded Replies) có hiệu năng đọc cao.
    - **Nhật ký & Giám sát Hệ thống (3 Collections Logging):**
@@ -58,6 +60,7 @@ erDiagram
     USERS {
         bigint user_id PK
         varchar full_name
+        varchar username UK
         varchar email UK
         varchar password_hash
         enum role "STUDENT, TEACHER, ADMIN"
@@ -161,17 +164,17 @@ erDiagram
 
 ### 2.2. Bảng Ma trận Quan hệ Chi tiết (Relationship Matrix)
 
-| Bảng nguồn (Parent / Source) | Bảng đích (Child / Target) | Loại quan hệ | Khóa ngoại (Foreign Key) | Quy tắc toàn vẹn (Cascade Rule) | Mô tả nghiệp vụ |
-|---|---|:---:|---|---|---|
-| `USERS` | `TOPICS` | **1 – N** | `TOPICS.teacher_id` $	o$ `USERS.user_id` | `ON DELETE RESTRICT` | Một giáo viên phụ trách nhiều chủ đề; không thể xóa user nếu đang là chủ nhiệm của chủ đề. |
-| `TOPICS` | `LESSONS` | **1 – N** | `LESSONS.topic_id` $	o$ `TOPICS.topic_id` | `ON DELETE CASCADE` | Một chủ đề chứa nhiều bài học tuần tự; xóa chủ đề sẽ xóa toàn bộ bài học bên trong. |
-| `LESSONS` | `LESSON_MATERIALS` | **1 – N** | `LESSON_MATERIALS.lesson_id` $	o$ `LESSONS.lesson_id` | `ON DELETE CASCADE` | Một bài học chứa nhiều tài liệu đa phương tiện (Video, PDF, Word). |
-| `LESSONS` | `VOCABULARY_ITEMS` | **1 – N** | `VOCABULARY_ITEMS.lesson_id` $	o$ `LESSONS.lesson_id` | `ON DELETE CASCADE` | Một bài học chứa nhiều từ vựng được parse từ file CSV. |
-| `LESSONS` | `MINIGAMES` | **1 – N** | `MINIGAMES.lesson_id` $	o$ `LESSONS.lesson_id` | `ON DELETE CASCADE` | Một bài học có thể gắn kèm 1 hoặc nhiều bài tập minigame ôn tập. |
-| `MINIGAMES` | `MINIGAME_ATTEMPTS` | **1 – N** | `MINIGAME_ATTEMPTS.minigame_id` $	o$ `MINIGAMES.minigame_id` | `ON DELETE CASCADE` | Một minigame ghi nhận nhiều lượt nộp bài từ học sinh. |
-| `USERS` | `MINIGAME_ATTEMPTS` | **1 – N** | `MINIGAME_ATTEMPTS.student_id` $	o$ `USERS.user_id` | `ON DELETE CASCADE` | Một học sinh có thể làm minigame nhiều lần để cải thiện điểm số. |
-| `USERS` | `LESSON_PROGRESS` | **1 – N** | `LESSON_PROGRESS.student_id` $	o$ `USERS.user_id` | `ON DELETE CASCADE` | Một học sinh có bản ghi theo dõi tiến độ riêng cho từng bài học. |
-| `LESSONS` | `LESSON_PROGRESS` | **1 – N** | `LESSON_PROGRESS.lesson_id` $	o$ `LESSONS.lesson_id` | `ON DELETE CASCADE` | Một bài học được theo dõi tiến độ độc lập bởi nhiều học sinh. |
+| Bảng nguồn (Parent / Source) | Bảng đích (Child / Target) | Loại quan hệ | Khóa ngoại (Foreign Key)                                     | Quy tắc toàn vẹn (Cascade Rule) | Mô tả nghiệp vụ                                                                            |
+| ---------------------------- | -------------------------- | :----------: | ------------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------ |
+| `USERS`                      | `TOPICS`                   |  **1 – N**   | `TOPICS.teacher_id` $ o$ `USERS.user_id`                     | `ON DELETE RESTRICT`            | Một giáo viên phụ trách nhiều chủ đề; không thể xóa user nếu đang là chủ nhiệm của chủ đề. |
+| `TOPICS`                     | `LESSONS`                  |  **1 – N**   | `LESSONS.topic_id` $ o$ `TOPICS.topic_id`                    | `ON DELETE CASCADE`             | Một chủ đề chứa nhiều bài học tuần tự; xóa chủ đề sẽ xóa toàn bộ bài học bên trong.        |
+| `LESSONS`                    | `LESSON_MATERIALS`         |  **1 – N**   | `LESSON_MATERIALS.lesson_id` $ o$ `LESSONS.lesson_id`        | `ON DELETE CASCADE`             | Một bài học chứa nhiều tài liệu đa phương tiện (Video, PDF, Word).                         |
+| `LESSONS`                    | `VOCABULARY_ITEMS`         |  **1 – N**   | `VOCABULARY_ITEMS.lesson_id` $ o$ `LESSONS.lesson_id`        | `ON DELETE CASCADE`             | Một bài học chứa nhiều từ vựng được parse từ file CSV.                                     |
+| `LESSONS`                    | `MINIGAMES`                |  **1 – N**   | `MINIGAMES.lesson_id` $ o$ `LESSONS.lesson_id`               | `ON DELETE CASCADE`             | Một bài học có thể gắn kèm 1 hoặc nhiều bài tập minigame ôn tập.                           |
+| `MINIGAMES`                  | `MINIGAME_ATTEMPTS`        |  **1 – N**   | `MINIGAME_ATTEMPTS.minigame_id` $ o$ `MINIGAMES.minigame_id` | `ON DELETE CASCADE`             | Một minigame ghi nhận nhiều lượt nộp bài từ học sinh.                                      |
+| `USERS`                      | `MINIGAME_ATTEMPTS`        |  **1 – N**   | `MINIGAME_ATTEMPTS.student_id` $ o$ `USERS.user_id`          | `ON DELETE CASCADE`             | Một học sinh có thể làm minigame nhiều lần để cải thiện điểm số.                           |
+| `USERS`                      | `LESSON_PROGRESS`          |  **1 – N**   | `LESSON_PROGRESS.student_id` $ o$ `USERS.user_id`            | `ON DELETE CASCADE`             | Một học sinh có bản ghi theo dõi tiến độ riêng cho từng bài học.                           |
+| `LESSONS`                    | `LESSON_PROGRESS`          |  **1 – N**   | `LESSON_PROGRESS.lesson_id` $ o$ `LESSONS.lesson_id`         | `ON DELETE CASCADE`             | Một bài học được theo dõi tiến độ độc lập bởi nhiều học sinh.                              |
 
 ---
 
@@ -179,14 +182,14 @@ erDiagram
 
 Do hệ thống sử dụng kiến trúc lai, việc liên kết giữa các bảng SQL và MongoDB Collections được quản lý logic tại **Application Service Layer**:
 
-| SQL Entity (Source) | MongoDB Collection (Target) | Khóa liên kết Logic | Hướng truy xuất & Tối ưu hóa |
-|---|---|---|---|
-| `MINIGAMES.minigame_id` | `minigame_questions` | `minigame_questions.minigame_id` | **1 – N**: Khi học sinh bắt đầu làm quiz, backend query MongoDB theo `minigame_id` để lấy toàn bộ câu hỏi và danh sách options JSON. |
-| `VOCABULARY_ITEMS.vocab_id` | `minigame_questions` | `minigame_questions.vocab_id` (nullable) | **1 – N**: Truy vết câu hỏi bắt nguồn từ từ vựng nào để phục vụ phân tích câu hỏi hay bị làm sai. |
-| `LESSONS.lesson_id` / `TOPICS.topic_id` | `comments` | `comments.target.id` & `comments.target.type` | **1 – N**: Lấy cây thảo luận của bài học/chủ đề bằng 1 query duy nhất kết hợp phân trang `skip/limit`. |
-| `USERS.user_id` | `comments` | `comments.author.user_id` | **Snapshot Pattern**: Lưu trực tiếp `full_name`, `avatar_url`, `role` vào MongoDB Document để tránh phải query JOIN sang SQL khi hiển thị bình luận. |
-| `USERS.user_id` | `audit_logs` | `audit_logs.actor.user_id` | **1 – N**: Truy vết lịch sử thao tác của Admin/Teacher khi kiểm toán bảo mật. |
-| `USERS.user_id` | `activity_logs` | `activity_logs.student_id` | **1 – N**: Thu thập log tương tác thời gian thực của học sinh trên Web và Mobile App. |
+| SQL Entity (Source)                     | MongoDB Collection (Target) | Khóa liên kết Logic                           | Hướng truy xuất & Tối ưu hóa                                                                                                                         |
+| --------------------------------------- | --------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MINIGAMES.minigame_id`                 | `minigame_questions`        | `minigame_questions.minigame_id`              | **1 – N**: Khi học sinh bắt đầu làm quiz, backend query MongoDB theo `minigame_id` để lấy toàn bộ câu hỏi và danh sách options JSON.                 |
+| `VOCABULARY_ITEMS.vocab_id`             | `minigame_questions`        | `minigame_questions.vocab_id` (nullable)      | **1 – N**: Truy vết câu hỏi bắt nguồn từ từ vựng nào để phục vụ phân tích câu hỏi hay bị làm sai.                                                    |
+| `LESSONS.lesson_id` / `TOPICS.topic_id` | `comments`                  | `comments.target.id` & `comments.target.type` | **1 – N**: Lấy cây thảo luận của bài học/chủ đề bằng 1 query duy nhất kết hợp phân trang `skip/limit`.                                               |
+| `USERS.user_id`                         | `comments`                  | `comments.author.user_id`                     | **Snapshot Pattern**: Lưu trực tiếp `full_name`, `avatar_url`, `role` vào MongoDB Document để tránh phải query JOIN sang SQL khi hiển thị bình luận. |
+| `USERS.user_id`                         | `audit_logs`                | `audit_logs.actor.user_id`                    | **1 – N**: Truy vết lịch sử thao tác của Admin/Teacher khi kiểm toán bảo mật.                                                                        |
+| `USERS.user_id`                         | `activity_logs`             | `activity_logs.student_id`                    | **1 – N**: Thu thập log tương tác thời gian thực của học sinh trên Web và Mobile App.                                                                |
 
 ---
 
@@ -195,82 +198,91 @@ Do hệ thống sử dụng kiến trúc lai, việc liên kết giữa các b�
 ### 3.1. Chi tiết Đặc tả 8 Bảng SQL
 
 #### 1. Bảng `USERS` (Tài khoản & Phân quyền)
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả & Ý nghĩa nghiệp vụ |
-|---|---|:---:|---|---|
-| `user_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính định danh tài khoản |
-| `full_name` | VARCHAR(255) | | NOT NULL | Họ và tên hiển thị trên hệ thống |
-| `email` | VARCHAR(255) | **UQ** | NOT NULL, UNIQUE | Địa chỉ email đăng nhập và nhận thông báo |
-| `password_hash` | VARCHAR(255) | | NOT NULL | Mật khẩu băm (Bcrypt cost 12 hoặc Argon2id) |
-| `role` | VARCHAR(20) | | NOT NULL, DEFAULT 'STUDENT' | Phân quyền: `'STUDENT'`, `'TEACHER'`, `'ADMIN'` |
-| `status` | VARCHAR(20) | | NOT NULL, DEFAULT 'ACTIVE' | Trạng thái: `'ACTIVE'`, `'LOCKED'` |
-| `created_at` | DATETIME | | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo tài khoản |
+
+| Tên trường      | Kiểu dữ liệu |  Khóa  | Ràng buộc                           | Mô tả & Ý nghĩa nghiệp vụ                       |
+| --------------- | ------------ | :----: | ----------------------------------- | ----------------------------------------------- |
+| `user_id`       | BIGINT       | **PK** | AUTO_INCREMENT                      | Khóa chính định danh tài khoản                  |
+| `full_name`     | VARCHAR(255) |        | NOT NULL                            | Họ và tên hiển thị trên hệ thống                |
+| `username`      | VARCHAR(50)  | **UQ** | NOT NULL, UNIQUE                    | Tên tài khoản đăng nhập (dùng thay email)       |
+| `email`         | VARCHAR(255) | **UQ** | NOT NULL, UNIQUE                    | Địa chỉ email đăng nhập và nhận thông báo       |
+| `password_hash` | VARCHAR(255) |        | NOT NULL                            | Mật khẩu băm (Bcrypt cost 12 hoặc Argon2id)     |
+| `role`          | VARCHAR(20)  |        | NOT NULL, DEFAULT 'STUDENT'         | Phân quyền: `'STUDENT'`, `'TEACHER'`, `'ADMIN'` |
+| `status`        | VARCHAR(20)  |        | NOT NULL, DEFAULT 'ACTIVE'          | Trạng thái: `'ACTIVE'`, `'LOCKED'`              |
+| `created_at`    | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo tài khoản                         |
 
 #### 2. Bảng `TOPICS` (Chủ đề học tập)
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả & Ý nghĩa nghiệp vụ |
-|---|---|:---:|---|---|
-| `topic_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính của chủ đề |
-| `teacher_id` | BIGINT | **FK** | NOT NULL, REFERENCES USERS(user_id) | Giảng viên phụ trách/tạo chủ đề |
-| `title` | VARCHAR(255) | | NOT NULL | Tiêu đề của chủ đề |
-| `description` | TEXT | | NULL | Mô tả chi tiết mục tiêu khóa học |
-| `level` | VARCHAR(50) | | NOT NULL | Cấp độ: `'BEGINNER'`, `'INTERMEDIATE'`, `'ADVANCED'` |
-| `created_at` | DATETIME | | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Ngày tạo chủ đề |
+
+| Tên trường    | Kiểu dữ liệu |  Khóa  | Ràng buộc                           | Mô tả & Ý nghĩa nghiệp vụ                            |
+| ------------- | ------------ | :----: | ----------------------------------- | ---------------------------------------------------- |
+| `topic_id`    | BIGINT       | **PK** | AUTO_INCREMENT                      | Khóa chính của chủ đề                                |
+| `teacher_id`  | BIGINT       | **FK** | NOT NULL, REFERENCES USERS(user_id) | Giảng viên phụ trách/tạo chủ đề                      |
+| `title`       | VARCHAR(255) |        | NOT NULL                            | Tiêu đề của chủ đề                                   |
+| `description` | TEXT         |        | NULL                                | Mô tả chi tiết mục tiêu khóa học                     |
+| `level`       | VARCHAR(50)  |        | NOT NULL                            | Cấp độ: `'BEGINNER'`, `'INTERMEDIATE'`, `'ADVANCED'` |
+| `created_at`  | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Ngày tạo chủ đề                                      |
 
 #### 3. Bảng `LESSONS` (Bài học trong chủ đề)
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả & Ý nghĩa nghiệp vụ |
-|---|---|:---:|---|---|
-| `lesson_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính bài học |
-| `topic_id` | BIGINT | **FK** | NOT NULL, REFERENCES TOPICS(topic_id) | Chủ đề chứa bài học này |
-| `title` | VARCHAR(255) | | NOT NULL | Tiêu đề bài học |
-| `order_index` | INT | | NOT NULL, DEFAULT 1 | Thứ tự sắp xếp hiển thị trong chủ đề |
-| `completion_threshold` | DECIMAL(5,2) | | NOT NULL, DEFAULT 80.00 | Ngưỡng điểm % tối thiểu để tính hoàn thành bài |
-| `created_at` | DATETIME | | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo bài học |
+
+| Tên trường             | Kiểu dữ liệu |  Khóa  | Ràng buộc                             | Mô tả & Ý nghĩa nghiệp vụ                      |
+| ---------------------- | ------------ | :----: | ------------------------------------- | ---------------------------------------------- |
+| `lesson_id`            | BIGINT       | **PK** | AUTO_INCREMENT                        | Khóa chính bài học                             |
+| `topic_id`             | BIGINT       | **FK** | NOT NULL, REFERENCES TOPICS(topic_id) | Chủ đề chứa bài học này                        |
+| `title`                | VARCHAR(255) |        | NOT NULL                              | Tiêu đề bài học                                |
+| `order_index`          | INT          |        | NOT NULL, DEFAULT 1                   | Thứ tự sắp xếp hiển thị trong chủ đề           |
+| `completion_threshold` | DECIMAL(5,2) |        | NOT NULL, DEFAULT 80.00               | Ngưỡng điểm % tối thiểu để tính hoàn thành bài |
+| `created_at`           | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP   | Thời điểm tạo bài học                          |
 
 #### 4. Bảng `LESSON_MATERIALS` (Học liệu đa phương tiện)
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả & Ý nghĩa nghiệp vụ |
-|---|---|:---:|---|---|
-| `material_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính tài liệu |
-| `lesson_id` | BIGINT | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id) | Bài học gắn liền tài liệu |
-| `type` | VARCHAR(20) | | NOT NULL | Định dạng file: `'VIDEO'`, `'PDF'`, `'WORD'` |
-| `file_url` | VARCHAR(500) | | NOT NULL | Đường dẫn lưu trữ an toàn (Signed URL/Pre-signed URL) |
-| `created_at` | DATETIME | | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Thời điểm tải tài liệu lên |
+
+| Tên trường    | Kiểu dữ liệu |  Khóa  | Ràng buộc                               | Mô tả & Ý nghĩa nghiệp vụ                             |
+| ------------- | ------------ | :----: | --------------------------------------- | ----------------------------------------------------- |
+| `material_id` | BIGINT       | **PK** | AUTO_INCREMENT                          | Khóa chính tài liệu                                   |
+| `lesson_id`   | BIGINT       | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id) | Bài học gắn liền tài liệu                             |
+| `type`        | VARCHAR(20)  |        | NOT NULL                                | Định dạng file: `'VIDEO'`, `'PDF'`, `'WORD'`          |
+| `file_url`    | VARCHAR(500) |        | NOT NULL                                | Đường dẫn lưu trữ an toàn (Signed URL/Pre-signed URL) |
+| `created_at`  | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP     | Thời điểm tải tài liệu lên                            |
 
 #### 5. Bảng `VOCABULARY_ITEMS` (Từ vựng bóc tách từ CSV)
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả & Ý nghĩa nghiệp vụ |
-|---|---|:---:|---|---|
-| `vocab_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính mục từ vựng |
-| `lesson_id` | BIGINT | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id) | Bài học chứa từ vựng này |
-| `word` | VARCHAR(255) | | NOT NULL | Từ vựng tiếng Anh gốc |
-| `meaning` | VARCHAR(500) | | NOT NULL | Nghĩa tiếng Việt của từ |
-| `pronunciation` | VARCHAR(255) | | NULL | Ký hiệu phiên âm quốc tế IPA |
-| `example` | TEXT | | NULL | Câu ví dụ minh họa ngữ cảnh |
+
+| Tên trường      | Kiểu dữ liệu |  Khóa  | Ràng buộc                               | Mô tả & Ý nghĩa nghiệp vụ    |
+| --------------- | ------------ | :----: | --------------------------------------- | ---------------------------- |
+| `vocab_id`      | BIGINT       | **PK** | AUTO_INCREMENT                          | Khóa chính mục từ vựng       |
+| `lesson_id`     | BIGINT       | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id) | Bài học chứa từ vựng này     |
+| `word`          | VARCHAR(255) |        | NOT NULL                                | Từ vựng tiếng Anh gốc        |
+| `meaning`       | VARCHAR(500) |        | NOT NULL                                | Nghĩa tiếng Việt của từ      |
+| `pronunciation` | VARCHAR(255) |        | NULL                                    | Ký hiệu phiên âm quốc tế IPA |
+| `example`       | TEXT         |        | NULL                                    | Câu ví dụ minh họa ngữ cảnh  |
 
 #### 6. Bảng `MINIGAMES` (Trò chơi ôn tập bài học)
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả & Ý nghĩa nghiệp vụ |
-|---|---|:---:|---|---|
-| `minigame_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính minigame (Ref sang MongoDB questions) |
-| `lesson_id` | BIGINT | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id) | Gắn với bài học tương ứng |
-| `title` | VARCHAR(255) | | NOT NULL | Tiêu đề minigame |
-| `status` | VARCHAR(20) | | NOT NULL, DEFAULT 'DRAFT' | Trạng thái: `'DRAFT'` (xem trước), `'PUBLISHED'` (công khai) |
-| `created_at` | DATETIME | | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Thời điểm khởi tạo minigame |
+
+| Tên trường    | Kiểu dữ liệu |  Khóa  | Ràng buộc                               | Mô tả & Ý nghĩa nghiệp vụ                                    |
+| ------------- | ------------ | :----: | --------------------------------------- | ------------------------------------------------------------ |
+| `minigame_id` | BIGINT       | **PK** | AUTO_INCREMENT                          | Khóa chính minigame (Ref sang MongoDB questions)             |
+| `lesson_id`   | BIGINT       | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id) | Gắn với bài học tương ứng                                    |
+| `title`       | VARCHAR(255) |        | NOT NULL                                | Tiêu đề minigame                                             |
+| `status`      | VARCHAR(20)  |        | NOT NULL, DEFAULT 'DRAFT'               | Trạng thái: `'DRAFT'` (xem trước), `'PUBLISHED'` (công khai) |
+| `created_at`  | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP     | Thời điểm khởi tạo minigame                                  |
 
 #### 7. Bảng `MINIGAME_ATTEMPTS` (Lịch sử làm bài tập)
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả & Ý nghĩa nghiệp vụ |
-|---|---|:---:|---|---|
-| `attempt_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính lượt làm bài |
-| `minigame_id` | BIGINT | **FK** | NOT NULL, REFERENCES MINIGAMES(minigame_id) | Minigame đã làm |
-| `student_id` | BIGINT | **FK** | NOT NULL, REFERENCES USERS(user_id) | Học sinh thực hiện nộp bài |
-| `score` | DECIMAL(5,2) | | NOT NULL | Điểm số đạt được (thang điểm 100) |
-| `is_passed` | BOOLEAN | | NOT NULL, DEFAULT FALSE | Cờ đánh dấu đạt điểm `>= completion_threshold` |
-| `attempted_at` | DATETIME | | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Thời điểm hoàn thành và nộp bài |
+
+| Tên trường     | Kiểu dữ liệu |  Khóa  | Ràng buộc                                   | Mô tả & Ý nghĩa nghiệp vụ                      |
+| -------------- | ------------ | :----: | ------------------------------------------- | ---------------------------------------------- |
+| `attempt_id`   | BIGINT       | **PK** | AUTO_INCREMENT                              | Khóa chính lượt làm bài                        |
+| `minigame_id`  | BIGINT       | **FK** | NOT NULL, REFERENCES MINIGAMES(minigame_id) | Minigame đã làm                                |
+| `student_id`   | BIGINT       | **FK** | NOT NULL, REFERENCES USERS(user_id)         | Học sinh thực hiện nộp bài                     |
+| `score`        | DECIMAL(5,2) |        | NOT NULL                                    | Điểm số đạt được (thang điểm 100)              |
+| `is_passed`    | BOOLEAN      |        | NOT NULL, DEFAULT FALSE                     | Cờ đánh dấu đạt điểm `>= completion_threshold` |
+| `attempted_at` | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP         | Thời điểm hoàn thành và nộp bài                |
 
 #### 8. Bảng `LESSON_PROGRESS` (Tiến độ học tập theo bài học)
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả & Ý nghĩa nghiệp vụ |
-|---|---|:---:|---|---|
-| `progress_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính bản ghi tiến độ |
-| `student_id` | BIGINT | **FK** | NOT NULL, REFERENCES USERS(user_id) | Học sinh |
-| `lesson_id` | BIGINT | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id) | Bài học |
-| `status` | VARCHAR(20) | | NOT NULL, DEFAULT 'IN_PROGRESS' | Trạng thái: `'IN_PROGRESS'`, `'COMPLETED'` |
-| `updated_at` | DATETIME | | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật trạng thái gần nhất |
+
+| Tên trường    | Kiểu dữ liệu |  Khóa  | Ràng buộc                                                       | Mô tả & Ý nghĩa nghiệp vụ                  |
+| ------------- | ------------ | :----: | --------------------------------------------------------------- | ------------------------------------------ |
+| `progress_id` | BIGINT       | **PK** | AUTO_INCREMENT                                                  | Khóa chính bản ghi tiến độ                 |
+| `student_id`  | BIGINT       | **FK** | NOT NULL, REFERENCES USERS(user_id)                             | Học sinh                                   |
+| `lesson_id`   | BIGINT       | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id)                         | Bài học                                    |
+| `status`      | VARCHAR(20)  |        | NOT NULL, DEFAULT 'IN_PROGRESS'                                 | Trạng thái: `'IN_PROGRESS'`, `'COMPLETED'` |
+| `updated_at`  | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật trạng thái gần nhất     |
 
 > **Ràng buộc duy nhất:** `UNIQUE(student_id, lesson_id)` đảm bảo mỗi học sinh chỉ có 1 bản ghi tiến độ duy nhất cho mỗi bài học.
 
@@ -283,6 +295,7 @@ Do hệ thống sử dụng kiến trúc lai, việc liên kết giữa các b�
 CREATE TABLE users (
     user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
+    username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('STUDENT', 'TEACHER', 'ADMIN') NOT NULL DEFAULT 'STUDENT',
@@ -383,6 +396,7 @@ CREATE INDEX idx_progress_student_status ON lesson_progress(student_id, status);
 ### 4.1. Nhóm Collections Nghiệp vụ (Core Business)
 
 #### 1. Collection: `minigame_questions`
+
 - **Mục đích:** Lưu trữ danh sách câu hỏi với định dạng dữ liệu đa hình (trắc nghiệm, ghép nối, điền từ) sinh ra từ bộ từ vựng CSV.
 - **Quan hệ:** Tham chiếu tới SQL qua trường `minigame_id`.
 
@@ -407,14 +421,17 @@ CREATE INDEX idx_progress_student_status ON lesson_progress(student_id, status);
   "created_at": ISODate("2026-08-20T10:00:00Z")
 }
 ```
-*Index:*
+
+_Index:_
+
 ```javascript
-db.minigame_questions.createIndex({ "minigame_id": 1, "order_index": 1 });
+db.minigame_questions.createIndex({ minigame_id: 1, order_index: 1 });
 ```
 
 ---
 
 #### 2. Collection: `comments`
+
 - **Mục đích:** Lưu trữ bình luận phân cấp (Threaded / Embedded Replies) cho cả cấp Topic và Lesson, tối ưu đọc trong 1 truy vấn.
 
 ```json
@@ -450,9 +467,11 @@ db.minigame_questions.createIndex({ "minigame_id": 1, "order_index": 1 });
   "updated_at": ISODate("2026-08-20T10:35:00Z")
 }
 ```
-*Indexes:*
+
+_Indexes:_
+
 ```javascript
-db.comments.createIndex({ "target.type": 1, "target.id": 1, "created_at": -1 });
+db.comments.createIndex({ "target.type": 1, "target.id": 1, created_at: -1 });
 db.comments.createIndex({ "author.user_id": 1 });
 ```
 
@@ -461,6 +480,7 @@ db.comments.createIndex({ "author.user_id": 1 });
 ### 4.2. Nhóm Collections Nhật ký Hệ thống (Logging & Auditing)
 
 #### 3. Collection: `audit_logs` (Nhật ký Kiểm toán & Quản trị)
+
 - **Mục đích:** Đáp ứng yêu cầu **NFR-SEC-08**, ghi lại các hành động nhạy cảm hoặc thay đổi quyền hạn từ Admin/Teacher (cấp tài khoản, khóa người dùng, chỉnh sửa điểm số, xóa bài học).
 
 ```json
@@ -486,16 +506,19 @@ db.comments.createIndex({ "author.user_id": 1 });
   "created_at": ISODate("2026-08-22T08:15:30Z")
 }
 ```
-*Indexes:*
+
+_Indexes:_
+
 ```javascript
-db.audit_logs.createIndex({ "created_at": -1 });
-db.audit_logs.createIndex({ "actor.user_id": 1, "created_at": -1 });
-db.audit_logs.createIndex({ "action": 1, "created_at": -1 });
+db.audit_logs.createIndex({ created_at: -1 });
+db.audit_logs.createIndex({ "actor.user_id": 1, created_at: -1 });
+db.audit_logs.createIndex({ action: 1, created_at: -1 });
 ```
 
 ---
 
 #### 4. Collection: `activity_logs` (Nhật ký Hoạt động Học tập)
+
 - **Mục đích:** Ghi nhận chuỗi hành vi học tập chi tiết của học sinh (xem video, thời lượng xem, tải tài liệu, bắt đầu làm quiz) nhằm phục vụ phân tích hành vi và gợi ý bài học.
 - **Đặc điểm:** Tần suất ghi rất cao (High Write Throughput). Sử dụng tính năng **TTL Index** để tự động dọn dẹp log cũ sau 90 ngày.
 
@@ -519,17 +542,23 @@ db.audit_logs.createIndex({ "action": 1, "created_at": -1 });
   "created_at": ISODate("2026-08-22T14:20:10Z")
 }
 ```
-*Indexes:*
+
+_Indexes:_
+
 ```javascript
-db.activity_logs.createIndex({ "student_id": 1, "created_at": -1 });
-db.activity_logs.createIndex({ "context.lesson_id": 1, "event_type": 1 });
+db.activity_logs.createIndex({ student_id: 1, created_at: -1 });
+db.activity_logs.createIndex({ "context.lesson_id": 1, event_type: 1 });
 // TTL Index: Tự động xóa log sau 90 ngày (7,776,000 giây)
-db.activity_logs.createIndex({ "created_at": 1 }, { expireAfterSeconds: 7776000 });
+db.activity_logs.createIndex(
+  { created_at: 1 },
+  { expireAfterSeconds: 7776000 },
+);
 ```
 
 ---
 
 #### 5. Collection: `system_error_logs` (Nhật ký Lỗi Kỹ thuật & Exception)
+
 - **Mục đích:** Bắt trọn vẹn các lỗi runtime từ backend API, worker ngầm (như parse file CSV thất bại, lỗi kết nối mạng tới S3/Mail Server), phục vụ giám sát và cảnh báo sự cố kỹ thuật.
 
 ```json
@@ -554,29 +583,35 @@ db.activity_logs.createIndex({ "created_at": 1 }, { expireAfterSeconds: 7776000 
   "created_at": ISODate("2026-08-22T15:10:05Z")
 }
 ```
-*Indexes:*
+
+_Indexes:_
+
 ```javascript
-db.system_error_logs.createIndex({ "error_level": 1, "created_at": -1 });
+db.system_error_logs.createIndex({ error_level: 1, created_at: -1 });
 db.system_error_logs.createIndex({ "request_context.request_id": 1 });
 // TTL Index: Tự động dọn dẹp log lỗi sau 30 ngày (2,592,000 giây)
-db.system_error_logs.createIndex({ "created_at": 1 }, { expireAfterSeconds: 2592000 });
+db.system_error_logs.createIndex(
+  { created_at: 1 },
+  { expireAfterSeconds: 2592000 },
+);
 ```
 
 ---
 
 ## 5. MA TRẬN ÁNH XẠ KIẾN TRÚC LƯU TRỮ (STORAGE MAPPING)
 
-| Thực thể / Chức năng | Cơ sở dữ liệu | Lý do lựa chọn giải pháp lưu trữ |
-|---|:---:|---|
-| **Users / Auth** | **MySQL / PostgreSQL** | Quan hệ phân quyền RBAC rõ ràng, yêu cầu kiểm tra tính duy nhất (Unique Email) và ràng buộc khóa ngoại an toàn. |
-| **Topics & Lessons** | **MySQL / PostgreSQL** | Dữ liệu quan hệ chặt chẽ $1 - N$, có thứ tự `order_index` cố định, tần suất đọc cao qua Index. |
-| **Materials & Vocab** | **MySQL / PostgreSQL** | Cấu trúc bảng cố định, quản lý vòng đời xoá cascade theo bài học (`ON DELETE CASCADE`). |
-| **Lesson Progress & Attempts** | **MySQL / PostgreSQL** | Cần tính chất ACID cao khi ghi nhận điểm số, tránh sai lệch tiến độ học tập và tranh chấp đồng thời (Concurrency). |
-| **Minigame Questions** | **MongoDB** | Cấu trúc JSON đa dạng theo từng dạng câu hỏi (trắc nghiệm, ghép cặp, điền từ), dễ mở rộng thêm dạng câu hỏi mới mà không cần migration bảng. |
-| **Comments & Replies** | **MongoDB** | Dữ liệu dạng cây (Nested Tree), tối ưu hóa lấy toàn bộ chuỗi thảo luận trong 1 query duy nhất, nhúng snapshot tác giả. |
-| **Audit Logs** | **MongoDB** | Dữ liệu kiểm toán dạng Document động (lưu `old_state`, `new_state`), cấu trúc tùy biến theo từng hành vi quản trị. |
-| **Activity Logs** | **MongoDB** | Băng thông ghi lớn (High Throughput), hỗ trợ TTL Index tự động hết hạn và giải phóng dung lượng ổ đĩa. |
-| **System Error Logs** | **MongoDB** | Lưu trữ chuỗi Stack Trace dài và chi tiết context lỗi một cách linh hoạt mà không làm phình schema CSDL chính. |
+| Thực thể / Chức năng           |     Cơ sở dữ liệu      | Lý do lựa chọn giải pháp lưu trữ                                                                                                             |
+| ------------------------------ | :--------------------: | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Users / Auth**               | **MySQL / PostgreSQL** | Quan hệ phân quyền RBAC rõ ràng, yêu cầu kiểm tra tính duy nhất (Unique Email & Username) và ràng buộc khóa ngoại an toàn.                   |
+| **Topics & Lessons**           | **MySQL / PostgreSQL** | Dữ liệu quan hệ chặt chẽ $1 - N$, có thứ tự `order_index` cố định, tần suất đọc cao qua Index.                                               |
+| **Materials & Vocab**          | **MySQL / PostgreSQL** | Cấu trúc bảng cố định, quản lý vòng đời xoá cascade theo bài học (`ON DELETE CASCADE`).                                                      |
+| **Lesson Progress & Attempts** | **MySQL / PostgreSQL** | Cần tính chất ACID cao khi ghi nhận điểm số, tránh sai lệch tiến độ học tập và tranh chấp đồng thời (Concurrency).                           |
+| **Minigame Questions**         |      **MongoDB**       | Cấu trúc JSON đa dạng theo từng dạng câu hỏi (trắc nghiệm, ghép cặp, điền từ), dễ mở rộng thêm dạng câu hỏi mới mà không cần migration bảng. |
+| **Comments & Replies**         |      **MongoDB**       | Dữ liệu dạng cây (Nested Tree), tối ưu hóa lấy toàn bộ chuỗi thảo luận trong 1 query duy nhất, nhúng snapshot tác giả.                       |
+| **Audit Logs**                 |      **MongoDB**       | Dữ liệu kiểm toán dạng Document động (lưu `old_state`, `new_state`), cấu trúc tùy biến theo từng hành vi quản trị.                           |
+| **Activity Logs**              |      **MongoDB**       | Băng thông ghi lớn (High Throughput), hỗ trợ TTL Index tự động hết hạn và giải phóng dung lượng ổ đĩa.                                       |
+| **System Error Logs**          |      **MongoDB**       | Lưu trữ chuỗi Stack Trace dài và chi tiết context lỗi một cách linh hoạt mà không làm phình schema CSDL chính.                               |
 
 ---
-*Tài liệu được thiết kế tối ưu cho nền tảng Backend Spring Boot / Node.js Express kết nối MySQL + MongoDB.*
+
+_Tài liệu được thiết kế tối ưu cho nền tảng Backend Spring Boot / Node.js Express kết nối MySQL + MongoDB._
