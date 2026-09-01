@@ -35,7 +35,7 @@
 | Tầng         | Công nghệ                                                                                                        |
 | ------------ | ---------------------------------------------------------------------------------------------------------------- |
 | Backend      | Java + Spring Boot (Maven), `spring-boot-starter-validation`, Spring Security + **OAuth2 Resource Server (JWT)** |
-| Database     | MySQL/PostgreSQL (quan hệ) + MongoDB (document) — Polyglot Persistence                                           |
+| Database     | MySQL 8.x (quan hệ, không dùng MongoDB)                                                                          |
 | Frontend     | React + Vite (JavaScript/JSX)                                                                                    |
 | Mobile       | Android (Kotlin)                                                                                                 |
 | Tài liệu API | Springdoc/OpenAPI 3.0 (Swagger UI)                                                                               |
@@ -51,13 +51,13 @@ com.example.BaoEng
 ├── BaoEngApplication.java
 ├── controller/      # @RestController — chỉ nhận/trả request, gọi Service
 ├── service/         # Logic nghiệp vụ
-├── repository/      # Spring Data JPA / MongoRepository
+├── repository/      # Spring Data JPA (MySQL)
 ├── entity/          # @Entity (MySQL)
-├── document/        # @Document (MongoDB)
 ├── dto/             # Request/Response DTO
 ├── config/          # Security, CORS, OpenAPI config
 ├── exception/       # ErrorCode, BusinessException, GlobalExceptionHandler
-└── common/          # ApiResponse<T>, util, constants
+├── common/          # ApiResponse<T>, util, constants
+└── util/            # Helper methods, mappers, validators
 ```
 
 ---
@@ -109,7 +109,6 @@ com.example.BaoEng
 | Package            | chữ thường           | `com.example.BaoEng.service` |
 | Bảng SQL           | snake_case, số nhiều | `lesson_progress`            |
 | Cột SQL            | snake_case           | `completion_threshold`       |
-| Collection MongoDB | snake_case, số nhiều | `minigame_questions`         |
 | REST endpoint      | kebab-case/số nhiều  | `/lesson-materials`          |
 | Component React    | PascalCase           | `TopicCard.jsx`              |
 
@@ -117,10 +116,10 @@ com.example.BaoEng
 
 ## 9. DATABASE
 
-1. SQL: 8 bảng theo `Docs/Database_Design_Specification_v2.md` (users, topics, lessons, lesson_materials, vocabulary_items, minigames, minigame_attempts, lesson_progress).
-2. MongoDB: 5 collections (minigame_questions, comments, audit_logs, activity_logs, system_error_logs).
-3. Khóa chính: `BIGINT AUTO_INCREMENT` (SQL), `ObjectId` (MongoDB).
-4. Liên kết chéo SQL↔MongoDB quản lý logic ở **Service Layer** (không có FK vật lý).
+1. MySQL thuần: hệ thống không sử dụng MongoDB. Toàn bộ dữ liệu nghiệp vụ, log, bình luận và minigame phải lưu trong MySQL.
+2. Số lượng bảng chính theo `Docs/Database_Design_Specification_v2.md`: users, students, teachers, topics, topics_enrollment, lessons, lesson_materials, vocabulary_items, minigames, minigame_questions, minigame_attempts, lesson_progress, comments, user_tokens, audit_logs, activity_logs, system_error_logs.
+3. Khóa chính: `BIGINT AUTO_INCREMENT` cho tất cả bảng SQL.
+4. Dữ liệu linh hoạt như `academic_history`, `awards`, `completed_topics`, `certificates`, `metadata` lưu dạng `JSON` trong MySQL.
 5. Bảng `users` có `username` UNIQUE — đăng nhập bằng email **hoặc** username.
 
 ---
@@ -152,5 +151,7 @@ AI phải:
 - [ ] `userId`/`role` lấy từ JWT (không từ body/URL).
 - [ ] Không tạo error code mới cho lỗi validate field.
 - [ ] Entity/field khớp `Database_Design_Specification_v2.md`.
+- [ ] Không còn phụ thuộc MongoDB trong thiết kế hoặc code mới.
+- [ ] JSON fields dùng đúng mục đích theo thiết kế SQL.
 - [ ] Endpoint khớp `API_Specification.md`.
 - [ ] Đã build/test thành công.
