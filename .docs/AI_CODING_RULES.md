@@ -117,9 +117,9 @@ com.example.BaoEng
 ## 9. DATABASE
 
 1. MySQL thuần: hệ thống không sử dụng MongoDB. Toàn bộ dữ liệu nghiệp vụ, log, bình luận và minigame phải lưu trong MySQL.
-2. Số lượng bảng chính theo `Docs/Database_Design_Specification_v2.md`: users, students, teachers, topics, topics_enrollment, lessons, lesson_materials, vocabulary_items, minigames, minigame_questions, minigame_attempts, lesson_progress, comments, user_tokens, audit_logs, activity_logs, system_error_logs.
+2. Số lượng bảng chính theo `Docs/Database_Design_Specification_v2.md`: users, students, teachers, teacher_certificates, topics, topics_enrollment, lessons, lesson_materials, vocabulary_items, minigames, minigame_questions, minigame_attempts, lesson_progress, comments, invalid_tokens, audit_logs, activity_logs, system_error_logs.
 3. Khóa chính: `BIGINT AUTO_INCREMENT` cho tất cả bảng SQL.
-4. Dữ liệu linh hoạt như `academic_history`, `awards`, `completed_topics`, `certificates`, `metadata` lưu dạng `JSON` trong MySQL.
+4. Dữ liệu linh hoạt như `academic_history`, `awards`, `completed_topics`, `metadata` lưu dạng `JSON` trong MySQL.
 5. Bảng `users` có `username` UNIQUE — đăng nhập bằng email **hoặc** username.
 
 ---

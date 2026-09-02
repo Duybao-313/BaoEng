@@ -12,9 +12,9 @@
 
 Hệ thống áp dụng mô hình lưu trữ **MySQL thuần** để đảm bảo tính nhất quán dữ liệu, dễ kiểm soát ràng buộc quan hệ và dễ mở rộng theo nghiệp vụ học tập, phân quyền, tiến độ, minigame, bình luận và log hệ thống.
 
-1. **Relational Database (MySQL - 16 bảng chính):**
+1. **Relational Database (MySQL - 18 bảng chính):**
    - Đảm nhiệm toàn bộ nghiệp vụ cốt lõi: người dùng, student profile, teacher profile, quyền hạn, chủ đề, bài học, tài liệu, từ vựng, minigame, tiến độ, logs và bình luận.
-   - Các dữ liệu linh hoạt như hồ sơ học thuật, chứng chỉ, danh sách topic đã học, metadata hoạt động được lưu dưới dạng `JSON` trong MySQL để giữ tính mềm dẻo nhưng vẫn nằm trong cùng một hệ quản trị.
+   - Các dữ liệu linh hoạt như hồ sơ học thuật, danh sách topic đã học, metadata hoạt động được lưu dưới dạng `JSON` trong MySQL để giữ tính mềm dẻo nhưng vẫn nằm trong cùng một hệ quản trị.
 
 2. **Không còn MongoDB trong kiến trúc hiện tại:**
    - `minigame_questions` được lưu trong bảng SQL chuẩn theo cấu trúc bảng `minigame_questions`.
@@ -23,7 +23,7 @@ Hệ thống áp dụng mô hình lưu trữ **MySQL thuần** để đảm bả
 
 3. **Nguyên tắc thiết kế dữ liệu:**
    - Mọi quan hệ business-critical đều là FK trong MySQL.
-   - Mọi dữ liệu có tính không cố định hoặc dạng JSON như chứng chỉ, học thuật, lịch sử hoạt động được lưu là `JSON`.
+   - Mọi dữ liệu có tính không cố định hoặc dạng JSON như học thuật, lịch sử hoạt động được lưu là `JSON`.
    - Không phát sinh phụ thuộc vào NoSQL trong hệ thống này.
 
 ---
@@ -36,8 +36,9 @@ Hệ thống áp dụng mô hình lưu trữ **MySQL thuần** để đảm bả
 erDiagram
     USERS ||--o| STUDENTS : "has profile"
     USERS ||--o| TEACHERS : "has profile"
+    TEACHERS ||--o{ TEACHER_CERTIFICATES : "holds"
     USERS ||--o{ TOPICS : "creates"
-    USERS ||--o{ USER_TOKENS : "owns"
+    USERS ||--o{ INVALID_TOKENS : "owns"
     USERS ||--o{ AUDIT_LOGS : "performs"
     USERS ||--o{ ACTIVITY_LOGS : "generates"
     USERS ||--o{ SYSTEM_ERROR_LOGS : "causes"
@@ -86,7 +87,6 @@ erDiagram
         enum current_level
         decimal total_points
         json completed_topics
-        json certificates
         json learning_goals
         datetime last_login_at
     }
@@ -96,7 +96,6 @@ erDiagram
         bigint user_id FK
         varchar teacher_code
         varchar phone
-        varchar degree
         varchar academic_title
         varchar highest_education
         varchar graduate_school
@@ -106,6 +105,18 @@ erDiagram
         json research_areas
         json academic_history
         json awards
+    }
+
+    TEACHER_CERTIFICATES {
+        bigint certificate_id PK
+        bigint teacher_id FK
+        varchar name
+        varchar score
+        varchar issuing_body
+        enum status
+        varchar image_url
+        datetime created_at
+        datetime updated_at
     }
 
     TOPICS {
@@ -204,17 +215,16 @@ erDiagram
         text notes
     }
 
-    USER_TOKENS {
-        bigint token_id PK
+    INVALID_TOKENS {
+        bigint invalid_token_id PK
         bigint user_id FK
-        enum token_type
-        varchar token_hash
         varchar jti
+        enum token_type
+        enum reason
+        datetime invalidated_at
         datetime expires_at
-        datetime issued_at
-        datetime revoked_at
-        datetime used_at
-        boolean is_revoked
+        varchar ip_address
+        varchar user_agent
     }
 
     COMMENTS {
@@ -277,301 +287,317 @@ erDiagram
 
 ### 2.2. Bảng Ma trận Quan hệ Chi tiết (Relationship Matrix)
 
-| Bảng nguồn (Parent / Source) | Bảng đích (Child / Target) | Loại quan hệ | Khóa ngoại (Foreign Key) | Quy tắc toàn vẹn (Cascade Rule) | Mô tả nghiệp vụ |
-| ---------------------------- | -------------------------- | :----------: | ------------------------ | ------------------------------- | --------------- |
-| `USERS` | `STUDENTS` | **1 – 1** | `STUDENTS.user_id` → `USERS.user_id` | `ON DELETE CASCADE` | Mỗi người dùng học sinh có hồ sơ cá nhân riêng. |
-| `USERS` | `TEACHERS` | **1 – 1** | `TEACHERS.user_id` → `USERS.user_id` | `ON DELETE CASCADE` | Mỗi người dùng giáo viên có hồ sơ chuyên môn riêng. |
-| `USERS` | `TOPICS` | **1 – N** | `TOPICS.teacher_id` → `USERS.user_id` | `ON DELETE RESTRICT` | Một giáo viên quản lý nhiều chủ đề. |
-| `STUDENTS` | `TOPICS_ENROLLMENT` | **1 – N** | `TOPICS_ENROLLMENT.student_id` → `STUDENTS.student_id` | `ON DELETE CASCADE` | Học sinh tham gia nhiều topic. |
-| `TOPICS` | `TOPICS_ENROLLMENT` | **1 – N** | `TOPICS_ENROLLMENT.topic_id` → `TOPICS.topic_id` | `ON DELETE CASCADE` | Topic có nhiều học sinh đăng ký. |
-| `TOPICS` | `LESSONS` | **1 – N** | `LESSONS.topic_id` → `TOPICS.topic_id` | `ON DELETE CASCADE` | Một chủ đề có nhiều bài học. |
-| `LESSONS` | `LESSON_MATERIALS` | **1 – N** | `LESSON_MATERIALS.lesson_id` → `LESSONS.lesson_id` | `ON DELETE CASCADE` | Một bài học có nhiều tài liệu. |
-| `LESSONS` | `VOCABULARY_ITEMS` | **1 – N** | `VOCABULARY_ITEMS.lesson_id` → `LESSONS.lesson_id` | `ON DELETE CASCADE` | Một bài học chứa nhiều từ vựng. |
-| `LESSONS` | `MINIGAMES` | **1 – N** | `MINIGAMES.lesson_id` → `LESSONS.lesson_id` | `ON DELETE CASCADE` | Mỗi bài học có thể có nhiều minigame. |
-| `MINIGAMES` | `MINIGAME_QUESTIONS` | **1 – N** | `MINIGAME_QUESTIONS.minigame_id` → `MINIGAMES.minigame_id` | `ON DELETE CASCADE` | Một minigame có nhiều câu hỏi. |
-| `MINIGAMES` | `MINIGAME_ATTEMPTS` | **1 – N** | `MINIGAME_ATTEMPTS.minigame_id` → `MINIGAMES.minigame_id` | `ON DELETE CASCADE` | Một minigame có nhiều lượt làm bài. |
-| `STUDENTS` | `MINIGAME_ATTEMPTS` | **1 – N** | `MINIGAME_ATTEMPTS.student_id` → `STUDENTS.student_id` | `ON DELETE CASCADE` | Học sinh có nhiều lượt làm bài. |
-| `STUDENTS` | `LESSON_PROGRESS` | **1 – N** | `LESSON_PROGRESS.student_id` → `STUDENTS.student_id` | `ON DELETE CASCADE` | Học sinh theo dõi tiến độ mỗi bài học. |
-| `LESSONS` | `LESSON_PROGRESS` | **1 – N** | `LESSON_PROGRESS.lesson_id` → `LESSONS.lesson_id` | `ON DELETE CASCADE` | Một bài học theo dõi tiến độ của nhiều học sinh. |
-| `COMMENTS` | `COMMENTS` | **1 – N** | `COMMENTS.parent_comment_id` → `COMMENTS.comment_id` | `ON DELETE CASCADE` | Hỗ trợ cây phản hồi (reply thread). |
-| `USERS` | `USER_TOKENS` | **1 – N** | `USER_TOKENS.user_id` → `USERS.user_id` | `ON DELETE CASCADE` | Mỗi user có nhiều token. |
-| `USERS` | `AUDIT_LOGS` | **1 – N** | `AUDIT_LOGS.actor_user_id` → `USERS.user_id` | `ON DELETE SET NULL` | Lưu lịch sử thao tác quản trị. |
-| `USERS` | `ACTIVITY_LOGS` | **1 – N** | `ACTIVITY_LOGS.user_id` → `USERS.user_id` | `ON DELETE SET NULL` | Lưu hoạt động người dùng. |
-| `USERS` | `SYSTEM_ERROR_LOGS` | **1 – N** | `SYSTEM_ERROR_LOGS.user_id` → `USERS.user_id` | `ON DELETE SET NULL` | Ghi lỗi hệ thống liên quan user. |
+| Bảng nguồn (Parent / Source) | Bảng đích (Child / Target) | Loại quan hệ | Khóa ngoại (Foreign Key)                                   | Quy tắc toàn vẹn (Cascade Rule) | Mô tả nghiệp vụ                                        |
+| ---------------------------- | -------------------------- | :----------: | ---------------------------------------------------------- | ------------------------------- | ------------------------------------------------------ |
+| `USERS`                      | `STUDENTS`                 |  **1 – 1**   | `STUDENTS.user_id` → `USERS.user_id`                       | `ON DELETE CASCADE`             | Mỗi người dùng học sinh có hồ sơ cá nhân riêng.        |
+| `USERS`                      | `TEACHERS`                 |  **1 – 1**   | `TEACHERS.user_id` → `USERS.user_id`                       | `ON DELETE CASCADE`             | Mỗi người dùng giáo viên có hồ sơ chuyên môn riêng.    |
+| `TEACHERS`                   | `TEACHER_CERTIFICATES`     |  **1 – N**   | `TEACHER_CERTIFICATES.teacher_id` → `TEACHERS.teacher_id`  | `ON DELETE CASCADE`             | Mỗi giáo viên có nhiều chứng chỉ giảng dạy.            |
+| `USERS`                      | `TOPICS`                   |  **1 – N**   | `TOPICS.teacher_id` → `USERS.user_id`                      | `ON DELETE RESTRICT`            | Một giáo viên quản lý nhiều chủ đề.                    |
+| `STUDENTS`                   | `TOPICS_ENROLLMENT`        |  **1 – N**   | `TOPICS_ENROLLMENT.student_id` → `STUDENTS.student_id`     | `ON DELETE CASCADE`             | Học sinh tham gia nhiều topic.                         |
+| `TOPICS`                     | `TOPICS_ENROLLMENT`        |  **1 – N**   | `TOPICS_ENROLLMENT.topic_id` → `TOPICS.topic_id`           | `ON DELETE CASCADE`             | Topic có nhiều học sinh đăng ký.                       |
+| `TOPICS`                     | `LESSONS`                  |  **1 – N**   | `LESSONS.topic_id` → `TOPICS.topic_id`                     | `ON DELETE CASCADE`             | Một chủ đề có nhiều bài học.                           |
+| `LESSONS`                    | `LESSON_MATERIALS`         |  **1 – N**   | `LESSON_MATERIALS.lesson_id` → `LESSONS.lesson_id`         | `ON DELETE CASCADE`             | Một bài học có nhiều tài liệu.                         |
+| `LESSONS`                    | `VOCABULARY_ITEMS`         |  **1 – N**   | `VOCABULARY_ITEMS.lesson_id` → `LESSONS.lesson_id`         | `ON DELETE CASCADE`             | Một bài học chứa nhiều từ vựng.                        |
+| `LESSONS`                    | `MINIGAMES`                |  **1 – N**   | `MINIGAMES.lesson_id` → `LESSONS.lesson_id`                | `ON DELETE CASCADE`             | Mỗi bài học có thể có nhiều minigame.                  |
+| `MINIGAMES`                  | `MINIGAME_QUESTIONS`       |  **1 – N**   | `MINIGAME_QUESTIONS.minigame_id` → `MINIGAMES.minigame_id` | `ON DELETE CASCADE`             | Một minigame có nhiều câu hỏi.                         |
+| `MINIGAMES`                  | `MINIGAME_ATTEMPTS`        |  **1 – N**   | `MINIGAME_ATTEMPTS.minigame_id` → `MINIGAMES.minigame_id`  | `ON DELETE CASCADE`             | Một minigame có nhiều lượt làm bài.                    |
+| `STUDENTS`                   | `MINIGAME_ATTEMPTS`        |  **1 – N**   | `MINIGAME_ATTEMPTS.student_id` → `STUDENTS.student_id`     | `ON DELETE CASCADE`             | Học sinh có nhiều lượt làm bài.                        |
+| `STUDENTS`                   | `LESSON_PROGRESS`          |  **1 – N**   | `LESSON_PROGRESS.student_id` → `STUDENTS.student_id`       | `ON DELETE CASCADE`             | Học sinh theo dõi tiến độ mỗi bài học.                 |
+| `LESSONS`                    | `LESSON_PROGRESS`          |  **1 – N**   | `LESSON_PROGRESS.lesson_id` → `LESSONS.lesson_id`          | `ON DELETE CASCADE`             | Một bài học theo dõi tiến độ của nhiều học sinh.       |
+| `COMMENTS`                   | `COMMENTS`                 |  **1 – N**   | `COMMENTS.parent_comment_id` → `COMMENTS.comment_id`       | `ON DELETE CASCADE`             | Hỗ trợ cây phản hồi (reply thread).                    |
+| `USERS`                      | `INVALID_TOKENS`           |  **1 – N**   | `INVALID_TOKENS.user_id` → `USERS.user_id`                 | `ON DELETE CASCADE`             | Mỗi user có nhiều token đã bị vô hiệu hóa (blacklist). |
+| `USERS`                      | `AUDIT_LOGS`               |  **1 – N**   | `AUDIT_LOGS.actor_user_id` → `USERS.user_id`               | `ON DELETE SET NULL`            | Lưu lịch sử thao tác quản trị.                         |
+| `USERS`                      | `ACTIVITY_LOGS`            |  **1 – N**   | `ACTIVITY_LOGS.user_id` → `USERS.user_id`                  | `ON DELETE SET NULL`            | Lưu hoạt động người dùng.                              |
+| `USERS`                      | `SYSTEM_ERROR_LOGS`        |  **1 – N**   | `SYSTEM_ERROR_LOGS.user_id` → `USERS.user_id`              | `ON DELETE SET NULL`            | Ghi lỗi hệ thống liên quan user.                       |
 
 ---
 
-## 3. THIẾT KẾ CHI TIẾT CSDL QUAN HỆ (RDBMS - 17 BẢNG CHÍNH)
+## 3. THIẾT KẾ CHI TIẾT CSDL QUAN HỆ (RDBMS - 18 BẢNG CHÍNH)
 
-### 3.1. Chi tiết Đặc tả 17 Bảng SQL
+### 3.1. Chi tiết Đặc tả 18 Bảng SQL
 
 #### 1. Bảng `USERS` (Tài khoản & Phân quyền)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `user_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính người dùng |
-| `full_name` | VARCHAR(255) |  | NOT NULL | Họ và tên |
-| `username` | VARCHAR(50) | **UQ** | NOT NULL | Tên đăng nhập duy nhất |
-| `email` | VARCHAR(255) | **UQ** | NOT NULL | Email đăng nhập |
-| `password_hash` | VARCHAR(255) |  | NOT NULL | Mật khẩu đã băm |
-| `avatar_url` | VARCHAR(500) |  | NULL | Ảnh đại diện |
-| `role` | ENUM('STUDENT','TEACHER','ADMIN') |  | NOT NULL DEFAULT 'STUDENT' | Vai trò |
-| `status` | ENUM('ACTIVE','LOCKED','INACTIVE') |  | NOT NULL DEFAULT 'ACTIVE' | Trạng thái |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
-| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
+| Tên trường      | Kiểu dữ liệu                       |  Khóa  | Ràng buộc                                             | Mô tả                  |
+| --------------- | ---------------------------------- | :----: | ----------------------------------------------------- | ---------------------- |
+| `user_id`       | BIGINT                             | **PK** | AUTO_INCREMENT                                        | Khóa chính người dùng  |
+| `full_name`     | VARCHAR(255)                       |        | NOT NULL                                              | Họ và tên              |
+| `username`      | VARCHAR(50)                        | **UQ** | NOT NULL                                              | Tên đăng nhập duy nhất |
+| `email`         | VARCHAR(255)                       | **UQ** | NOT NULL                                              | Email đăng nhập        |
+| `password_hash` | VARCHAR(255)                       |        | NOT NULL                                              | Mật khẩu đã băm        |
+| `avatar_url`    | VARCHAR(500)                       |        | NULL                                                  | Ảnh đại diện           |
+| `role`          | ENUM('STUDENT','TEACHER','ADMIN')  |        | NOT NULL DEFAULT 'STUDENT'                            | Vai trò                |
+| `status`        | ENUM('ACTIVE','LOCKED','INACTIVE') |        | NOT NULL DEFAULT 'ACTIVE'                             | Trạng thái             |
+| `created_at`    | DATETIME                           |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo          |
+| `updated_at`    | DATETIME                           |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật     |
 
 #### 2. Bảng `STUDENTS` (Hồ sơ học sinh)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `student_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `user_id` | BIGINT | **FK** | NOT NULL UNIQUE | Liên kết với `users` |
-| `student_code` | VARCHAR(50) | **UQ** | NULL | Mã học viên |
-| `date_of_birth` | DATE |  | NULL | Ngày sinh |
-| `gender` | ENUM('MALE','FEMALE','OTHER') |  | NULL | Giới tính |
-| `phone` | VARCHAR(20) |  | NULL | Số điện thoại |
-| `address` | VARCHAR(255) |  | NULL | Địa chỉ |
-| `bio` | TEXT |  | NULL | Giới thiệu bản thân |
-| `current_level` | ENUM('BEGINNER','INTERMEDIATE','ADVANCED') |  | DEFAULT 'BEGINNER' | Mức độ hiện tại |
-| `total_points` | DECIMAL(10,2) |  | DEFAULT 0.00 | Tổng điểm tích lũy |
-| `completed_topics` | JSON |  | NULL | Danh sách topic đã hoàn thành |
-| `certificates` | JSON |  | NULL | Chứng chỉ, bằng cấp, chứng nhận |
-| `learning_goals` | JSON |  | NULL | Mục tiêu học tập |
-| `last_login_at` | DATETIME |  | NULL | Đăng nhập gần nhất |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
-| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
+| Tên trường         | Kiểu dữ liệu                               |  Khóa  | Ràng buộc                                             | Mô tả                         |
+| ------------------ | ------------------------------------------ | :----: | ----------------------------------------------------- | ----------------------------- |
+| `student_id`       | BIGINT                                     | **PK** | AUTO_INCREMENT                                        | Khóa chính                    |
+| `user_id`          | BIGINT                                     | **FK** | NOT NULL UNIQUE                                       | Liên kết với `users`          |
+| `student_code`     | VARCHAR(50)                                | **UQ** | NULL                                                  | Mã học viên                   |
+| `date_of_birth`    | DATE                                       |        | NULL                                                  | Ngày sinh                     |
+| `gender`           | ENUM('MALE','FEMALE','OTHER')              |        | NULL                                                  | Giới tính                     |
+| `phone`            | VARCHAR(20)                                |        | NULL                                                  | Số điện thoại                 |
+| `address`          | VARCHAR(255)                               |        | NULL                                                  | Địa chỉ                       |
+| `bio`              | TEXT                                       |        | NULL                                                  | Giới thiệu bản thân           |
+| `current_level`    | ENUM('BEGINNER','INTERMEDIATE','ADVANCED') |        | DEFAULT 'BEGINNER'                                    | Mức độ hiện tại               |
+| `total_points`     | DECIMAL(10,2)                              |        | DEFAULT 0.00                                          | Tổng điểm tích lũy            |
+| `completed_topics` | JSON                                       |        | NULL                                                  | Danh sách topic đã hoàn thành |
+| `learning_goals`   | JSON                                       |        | NULL                                                  | Mục tiêu học tập              |
+| `last_login_at`    | DATETIME                                   |        | NULL                                                  | Đăng nhập gần nhất            |
+| `created_at`       | DATETIME                                   |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo                 |
+| `updated_at`       | DATETIME                                   |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật            |
 
 #### 3. Bảng `TEACHERS` (Hồ sơ giáo viên)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `teacher_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `user_id` | BIGINT | **FK** | NOT NULL UNIQUE | Liên kết với `users` |
-| `teacher_code` | VARCHAR(50) | **UQ** | NULL | Mã giáo viên |
-| `phone` | VARCHAR(20) |  | NULL | Số điện thoại |
-| `gender` | ENUM('MALE','FEMALE','OTHER') |  | NULL | Giới tính |
-| `date_of_birth` | DATE |  | NULL | Ngày sinh |
-| `degree` | VARCHAR(100) |  | NULL | Bằng cấp |
-| `academic_title` | VARCHAR(100) |  | NULL | Học vị |
-| `highest_education` | VARCHAR(255) |  | NULL | Trình độ học vấn cao nhất |
-| `graduate_school` | VARCHAR(255) |  | NULL | Trường đại học tốt nghiệp |
-| `specialization` | VARCHAR(255) |  | NULL | Chuyên môn |
-| `teaching_experience_years` | INT |  | DEFAULT 0 | Số năm giảng dạy |
-| `bio` | TEXT |  | NULL | Tiểu sử |
-| `research_areas` | JSON |  | NULL | Lĩnh vực nghiên cứu |
-| `academic_history` | JSON |  | NULL | Lịch sử học thuật |
-| `awards` | JSON |  | NULL | Giải thưởng, danh hiệu |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
-| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
+| Tên trường                  | Kiểu dữ liệu                  |  Khóa  | Ràng buộc                                             | Mô tả                     |
+| --------------------------- | ----------------------------- | :----: | ----------------------------------------------------- | ------------------------- |
+| `teacher_id`                | BIGINT                        | **PK** | AUTO_INCREMENT                                        | Khóa chính                |
+| `user_id`                   | BIGINT                        | **FK** | NOT NULL UNIQUE                                       | Liên kết với `users`      |
+| `teacher_code`              | VARCHAR(50)                   | **UQ** | NULL                                                  | Mã giáo viên              |
+| `phone`                     | VARCHAR(20)                   |        | NULL                                                  | Số điện thoại             |
+| `gender`                    | ENUM('MALE','FEMALE','OTHER') |        | NULL                                                  | Giới tính                 |
+| `date_of_birth`             | DATE                          |        | NULL                                                  | Ngày sinh                 |
+| `academic_title`            | VARCHAR(100)                  |        | NULL                                                  | Học vị                    |
+| `highest_education`         | VARCHAR(255)                  |        | NULL                                                  | Trình độ học vấn cao nhất |
+| `graduate_school`           | VARCHAR(255)                  |        | NULL                                                  | Trường đại học tốt nghiệp |
+| `specialization`            | VARCHAR(255)                  |        | NULL                                                  | Chuyên môn                |
+| `teaching_experience_years` | INT                           |        | DEFAULT 0                                             | Số năm giảng dạy          |
+| `bio`                       | TEXT                          |        | NULL                                                  | Tiểu sử                   |
+| `research_areas`            | JSON                          |        | NULL                                                  | Lĩnh vực nghiên cứu       |
+| `academic_history`          | JSON                          |        | NULL                                                  | Lịch sử học thuật         |
+| `awards`                    | JSON                          |        | NULL                                                  | Giải thưởng, danh hiệu    |
+| `created_at`                | DATETIME                      |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo             |
+| `updated_at`                | DATETIME                      |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật        |
 
-#### 4. Bảng `TOPICS` (Chủ đề học tập)
+> **Ghi chú:** Chứng chỉ giảng dạy của giáo viên được lưu ở bảng riêng `TEACHER_CERTIFICATES` (xem mục 4 bên dưới), không còn lưu JSON trong bảng `teachers`.
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `topic_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `teacher_id` | BIGINT | **FK** | NOT NULL | Giáo viên tạo chủ đề |
-| `title` | VARCHAR(255) |  | NOT NULL | Tiêu đề |
-| `description` | TEXT |  | NULL | Mô tả |
-| `level` | ENUM('BEGINNER','INTERMEDIATE','ADVANCED') |  | NOT NULL | Cấp độ |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+#### 4. Bảng `TEACHER_CERTIFICATES` (Chứng chỉ giảng dạy giáo viên)
 
-#### 5. Bảng `TOPICS_ENROLLMENT` (Theo dõi học sinh tham gia topic)
+| Tên trường       | Kiểu dữ liệu                          |  Khóa  | Ràng buộc                                             | Mô tả                                  |
+| ---------------- | ------------------------------------- | :----: | ----------------------------------------------------- | -------------------------------------- |
+| `certificate_id` | BIGINT                                | **PK** | AUTO_INCREMENT                                        | Khóa chính                             |
+| `teacher_id`     | BIGINT                                | **FK** | NOT NULL                                              | Giáo viên sở hữu chứng chỉ             |
+| `name`           | VARCHAR(100)                          |        | NOT NULL                                              | Tên chứng chỉ (IELTS, TESOL,...)       |
+| `score`          | VARCHAR(50)                           |        | NULL                                                  | Điểm/Kết quả ("8.5", "Pass")           |
+| `issuing_body`   | VARCHAR(255)                          |        | NULL                                                  | Tổ chức cấp chứng chỉ (IDP, Cambridge) |
+| `status`         | ENUM('PENDING','VERIFIED','REJECTED') |        | NOT NULL DEFAULT 'PENDING'                            | Trạng thái xác minh                    |
+| `image_url`      | VARCHAR(500)                          |        | NULL                                                  | Đường dẫn ảnh chứng chỉ                |
+| `created_at`     | DATETIME                              |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm thêm                         |
+| `updated_at`     | DATETIME                              |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật                     |
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `enrollment_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `student_id` | BIGINT | **FK** | NOT NULL | Học sinh |
-| `topic_id` | BIGINT | **FK** | NOT NULL | Chủ đề |
-| `status` | ENUM('ENROLLED','IN_PROGRESS','COMPLETED','DROPPED') |  | DEFAULT 'ENROLLED' | Trạng thái tham gia |
-| `progress_percent` | DECIMAL(5,2) |  | DEFAULT 0.00 | % tiến độ topic |
-| `enrolled_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tham gia |
-| `last_activity_at` | DATETIME |  | NULL | Hoạt động gần nhất |
-| `completed_at` | DATETIME |  | NULL | Thời điểm hoàn thành topic |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
-| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
+> **Ghi chú:** Một giáo viên có thể có **nhiều chứng chỉ**; mỗi chứng chỉ là **1 bản ghi** trong bảng này.
 
-#### 6. Bảng `LESSONS` (Bài học)
+#### 5. Bảng `TOPICS` (Chủ đề học tập)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `lesson_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `topic_id` | BIGINT | **FK** | NOT NULL | Chủ đề chứa bài học |
-| `title` | VARCHAR(255) |  | NOT NULL | Tiêu đề |
-| `order_index` | INT |  | NOT NULL DEFAULT 1 | Thứ tự sắp xếp |
-| `completion_threshold` | DECIMAL(5,2) |  | NOT NULL DEFAULT 80.00 | Ngưỡng hoàn thành bài |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+| Tên trường    | Kiểu dữ liệu                               |  Khóa  | Ràng buộc                 | Mô tả                |
+| ------------- | ------------------------------------------ | :----: | ------------------------- | -------------------- |
+| `topic_id`    | BIGINT                                     | **PK** | AUTO_INCREMENT            | Khóa chính           |
+| `teacher_id`  | BIGINT                                     | **FK** | NOT NULL                  | Giáo viên tạo chủ đề |
+| `title`       | VARCHAR(255)                               |        | NOT NULL                  | Tiêu đề              |
+| `description` | TEXT                                       |        | NULL                      | Mô tả                |
+| `level`       | ENUM('BEGINNER','INTERMEDIATE','ADVANCED') |        | NOT NULL                  | Cấp độ               |
+| `created_at`  | DATETIME                                   |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo        |
 
-#### 7. Bảng `LESSON_MATERIALS` (Học liệu)
+#### 6. Bảng `TOPICS_ENROLLMENT` (Theo dõi học sinh tham gia topic)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `material_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `lesson_id` | BIGINT | **FK** | NOT NULL | Bài học |
-| `type` | ENUM('VIDEO','PDF','WORD') |  | NOT NULL | Loại file |
-| `file_url` | VARCHAR(500) |  | NOT NULL | Đường dẫn lưu trữ |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm upload |
+| Tên trường         | Kiểu dữ liệu                                         |  Khóa  | Ràng buộc                                             | Mô tả                      |
+| ------------------ | ---------------------------------------------------- | :----: | ----------------------------------------------------- | -------------------------- |
+| `enrollment_id`    | BIGINT                                               | **PK** | AUTO_INCREMENT                                        | Khóa chính                 |
+| `student_id`       | BIGINT                                               | **FK** | NOT NULL                                              | Học sinh                   |
+| `topic_id`         | BIGINT                                               | **FK** | NOT NULL                                              | Chủ đề                     |
+| `status`           | ENUM('ENROLLED','IN_PROGRESS','COMPLETED','DROPPED') |        | DEFAULT 'ENROLLED'                                    | Trạng thái tham gia        |
+| `progress_percent` | DECIMAL(5,2)                                         |        | DEFAULT 0.00                                          | % tiến độ topic            |
+| `enrolled_at`      | DATETIME                                             |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tham gia         |
+| `last_activity_at` | DATETIME                                             |        | NULL                                                  | Hoạt động gần nhất         |
+| `completed_at`     | DATETIME                                             |        | NULL                                                  | Thời điểm hoàn thành topic |
+| `created_at`       | DATETIME                                             |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo              |
+| `updated_at`       | DATETIME                                             |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật         |
 
-#### 8. Bảng `VOCABULARY_ITEMS` (Từ vựng)
+#### 7. Bảng `LESSONS` (Bài học)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `vocab_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `lesson_id` | BIGINT | **FK** | NOT NULL | Bài học |
-| `word` | VARCHAR(255) |  | NOT NULL | Từ vựng |
-| `meaning` | VARCHAR(500) |  | NOT NULL | Nghĩa tiếng Việt |
-| `pronunciation` | VARCHAR(255) |  | NULL | Phiên âm |
-| `example` | TEXT |  | NULL | Ví dụ |
+| Tên trường             | Kiểu dữ liệu |  Khóa  | Ràng buộc                 | Mô tả                 |
+| ---------------------- | ------------ | :----: | ------------------------- | --------------------- |
+| `lesson_id`            | BIGINT       | **PK** | AUTO_INCREMENT            | Khóa chính            |
+| `topic_id`             | BIGINT       | **FK** | NOT NULL                  | Chủ đề chứa bài học   |
+| `title`                | VARCHAR(255) |        | NOT NULL                  | Tiêu đề               |
+| `order_index`          | INT          |        | NOT NULL DEFAULT 1        | Thứ tự sắp xếp        |
+| `completion_threshold` | DECIMAL(5,2) |        | NOT NULL DEFAULT 80.00    | Ngưỡng hoàn thành bài |
+| `created_at`           | DATETIME     |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo         |
 
-#### 9. Bảng `MINIGAMES` (Minigame)
+#### 8. Bảng `LESSON_MATERIALS` (Học liệu)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `minigame_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `lesson_id` | BIGINT | **FK** | NOT NULL | Bài học liên quan |
-| `title` | VARCHAR(255) |  | NOT NULL | Tiêu đề minigame |
-| `status` | ENUM('DRAFT','PUBLISHED') |  | DEFAULT 'DRAFT' | Trạng thái |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+| Tên trường    | Kiểu dữ liệu               |  Khóa  | Ràng buộc                 | Mô tả             |
+| ------------- | -------------------------- | :----: | ------------------------- | ----------------- |
+| `material_id` | BIGINT                     | **PK** | AUTO_INCREMENT            | Khóa chính        |
+| `lesson_id`   | BIGINT                     | **FK** | NOT NULL                  | Bài học           |
+| `type`        | ENUM('VIDEO','PDF','WORD') |        | NOT NULL                  | Loại file         |
+| `file_url`    | VARCHAR(500)               |        | NOT NULL                  | Đường dẫn lưu trữ |
+| `created_at`  | DATETIME                   |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm upload  |
 
-#### 10. Bảng `MINIGAME_QUESTIONS` (Câu hỏi trắc nghiệm 4 đáp án)
+#### 9. Bảng `VOCABULARY_ITEMS` (Từ vựng)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `question_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `minigame_id` | BIGINT | **FK** | NOT NULL | Minigame chứa câu hỏi |
-| `vocab_id` | BIGINT | **FK** | NULL | Từ vựng gốc nếu có |
-| `question_text` | TEXT |  | NOT NULL | Nội dung câu hỏi |
-| `option_a` | VARCHAR(500) |  | NOT NULL | Đáp án A |
-| `option_b` | VARCHAR(500) |  | NOT NULL | Đáp án B |
-| `option_c` | VARCHAR(500) |  | NOT NULL | Đáp án C |
-| `option_d` | VARCHAR(500) |  | NOT NULL | Đáp án D |
-| `correct_option` | ENUM('A','B','C','D') |  | NOT NULL | Đáp án đúng |
-| `explanation` | TEXT |  | NULL | Giải thích đáp án |
-| `difficulty` | ENUM('EASY','MEDIUM','HARD') |  | DEFAULT 'MEDIUM' | Độ khó |
-| `question_order` | INT |  | NOT NULL DEFAULT 1 | Thứ tự câu hỏi |
-| `is_active` | BOOLEAN |  | NOT NULL DEFAULT TRUE | Câu hỏi còn kích hoạt |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
-| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
+| Tên trường      | Kiểu dữ liệu |  Khóa  | Ràng buộc      | Mô tả            |
+| --------------- | ------------ | :----: | -------------- | ---------------- |
+| `vocab_id`      | BIGINT       | **PK** | AUTO_INCREMENT | Khóa chính       |
+| `lesson_id`     | BIGINT       | **FK** | NOT NULL       | Bài học          |
+| `word`          | VARCHAR(255) |        | NOT NULL       | Từ vựng          |
+| `meaning`       | VARCHAR(500) |        | NOT NULL       | Nghĩa tiếng Việt |
+| `pronunciation` | VARCHAR(255) |        | NULL           | Phiên âm         |
+| `example`       | TEXT         |        | NULL           | Ví dụ            |
 
-#### 11. Bảng `MINIGAME_ATTEMPTS` (Lịch sử làm bài)
+#### 10. Bảng `MINIGAMES` (Minigame)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `attempt_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `minigame_id` | BIGINT | **FK** | NOT NULL | Minigame đã làm |
-| `student_id` | BIGINT | **FK** | NOT NULL | Học sinh nộp bài |
-| `score` | DECIMAL(5,2) |  | NOT NULL | Điểm số |
-| `is_passed` | BOOLEAN |  | NOT NULL DEFAULT FALSE | Đã đạt ngưỡng |
-| `attempted_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm nộp bài |
+| Tên trường    | Kiểu dữ liệu              |  Khóa  | Ràng buộc                 | Mô tả             |
+| ------------- | ------------------------- | :----: | ------------------------- | ----------------- |
+| `minigame_id` | BIGINT                    | **PK** | AUTO_INCREMENT            | Khóa chính        |
+| `lesson_id`   | BIGINT                    | **FK** | NOT NULL                  | Bài học liên quan |
+| `title`       | VARCHAR(255)              |        | NOT NULL                  | Tiêu đề minigame  |
+| `status`      | ENUM('DRAFT','PUBLISHED') |        | DEFAULT 'DRAFT'           | Trạng thái        |
+| `created_at`  | DATETIME                  |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo     |
 
-#### 12. Bảng `LESSON_PROGRESS` (Tiến độ bài học)
+#### 11. Bảng `MINIGAME_QUESTIONS` (Câu hỏi trắc nghiệm 4 đáp án)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `progress_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `student_id` | BIGINT | **FK** | NOT NULL | Học sinh |
-| `lesson_id` | BIGINT | **FK** | NOT NULL | Bài học |
-| `status` | ENUM('NOT_STARTED','IN_PROGRESS','COMPLETED','REVIEWING') |  | DEFAULT 'NOT_STARTED' | Trạng thái tiến độ |
-| `completion_percent` | DECIMAL(5,2) |  | DEFAULT 0.00 | % hoàn thành bài |
-| `viewed_materials_count` | INT |  | DEFAULT 0 | Số tài liệu đã xem |
-| `minigame_attempt_count` | INT |  | DEFAULT 0 | Số lần làm minigame |
-| `minigame_score` | DECIMAL(5,2) |  | DEFAULT 0.00 | Điểm minigame hiện tại |
-| `last_score` | DECIMAL(5,2) |  | NULL | Điểm mới nhất |
-| `time_spent_minutes` | INT |  | DEFAULT 0 | Thời gian học |
-| `started_at` | DATETIME |  | NULL | Thời điểm bắt đầu |
-| `completed_at` | DATETIME |  | NULL | Thời điểm hoàn thành |
-| `last_activity_at` | DATETIME |  | NULL | Hoạt động gần nhất |
-| `notes` | TEXT |  | NULL | Ghi chú |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
-| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
+| Tên trường       | Kiểu dữ liệu                 |  Khóa  | Ràng buộc                                             | Mô tả                 |
+| ---------------- | ---------------------------- | :----: | ----------------------------------------------------- | --------------------- |
+| `question_id`    | BIGINT                       | **PK** | AUTO_INCREMENT                                        | Khóa chính            |
+| `minigame_id`    | BIGINT                       | **FK** | NOT NULL                                              | Minigame chứa câu hỏi |
+| `vocab_id`       | BIGINT                       | **FK** | NULL                                                  | Từ vựng gốc nếu có    |
+| `question_text`  | TEXT                         |        | NOT NULL                                              | Nội dung câu hỏi      |
+| `option_a`       | VARCHAR(500)                 |        | NOT NULL                                              | Đáp án A              |
+| `option_b`       | VARCHAR(500)                 |        | NOT NULL                                              | Đáp án B              |
+| `option_c`       | VARCHAR(500)                 |        | NOT NULL                                              | Đáp án C              |
+| `option_d`       | VARCHAR(500)                 |        | NOT NULL                                              | Đáp án D              |
+| `correct_option` | ENUM('A','B','C','D')        |        | NOT NULL                                              | Đáp án đúng           |
+| `explanation`    | TEXT                         |        | NULL                                                  | Giải thích đáp án     |
+| `difficulty`     | ENUM('EASY','MEDIUM','HARD') |        | DEFAULT 'MEDIUM'                                      | Độ khó                |
+| `question_order` | INT                          |        | NOT NULL DEFAULT 1                                    | Thứ tự câu hỏi        |
+| `is_active`      | BOOLEAN                      |        | NOT NULL DEFAULT TRUE                                 | Câu hỏi còn kích hoạt |
+| `created_at`     | DATETIME                     |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo         |
+| `updated_at`     | DATETIME                     |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật    |
 
-> **Ràng buộc duy nhất:** `UNIQUE(student_id, lesson_id)` đảm bảo mỗi học sinh chỉ có 1 bản ghi tiến độ cho mỗi bài học.
+#### 12. Bảng `MINIGAME_ATTEMPTS` (Lịch sử làm bài)
 
-#### 13. Bảng `COMMENTS` (Bình luận Topic/Lesson)
+| Tên trường     | Kiểu dữ liệu |  Khóa  | Ràng buộc                 | Mô tả             |
+| -------------- | ------------ | :----: | ------------------------- | ----------------- |
+| `attempt_id`   | BIGINT       | **PK** | AUTO_INCREMENT            | Khóa chính        |
+| `minigame_id`  | BIGINT       | **FK** | NOT NULL                  | Minigame đã làm   |
+| `student_id`   | BIGINT       | **FK** | NOT NULL                  | Học sinh nộp bài  |
+| `score`        | DECIMAL(5,2) |        | NOT NULL                  | Điểm số           |
+| `is_passed`    | BOOLEAN      |        | NOT NULL DEFAULT FALSE    | Đã đạt ngưỡng     |
+| `attempted_at` | DATETIME     |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm nộp bài |
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `comment_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `target_type` | ENUM('TOPIC','LESSON') |  | NOT NULL | Bình luận thuộc Topic hay Lesson |
-| `target_id` | BIGINT |  | NOT NULL | ID của topic hoặc lesson |
-| `parent_comment_id` | BIGINT | **FK** | NULL | Bình luận cha, nếu là reply |
-| `author_user_id` | BIGINT | **FK** | NOT NULL | Người gửi |
-| `author_role` | ENUM('STUDENT','TEACHER','ADMIN') |  | NOT NULL | Vai trò người gửi |
-| `content` | TEXT |  | NOT NULL | Nội dung bình luận |
-| `status` | ENUM('ACTIVE','HIDDEN','DELETED') |  | DEFAULT 'ACTIVE' | Trạng thái bình luận |
-| `like_count` | INT |  | DEFAULT 0 | Số lượt thích |
-| `reply_count` | INT |  | DEFAULT 0 | Số lượng reply |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
-| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
+#### 13. Bảng `LESSON_PROGRESS` (Tiến độ bài học)
 
-#### 14. Bảng `USER_TOKENS` (Token hệ thống)
+| Tên trường               | Kiểu dữ liệu                                              |  Khóa  | Ràng buộc                                             | Mô tả                                              |
+| ------------------------ | --------------------------------------------------------- | :----: | ----------------------------------------------------- | -------------------------------------------------- |
+| `progress_id`            | BIGINT                                                    | **PK** | AUTO_INCREMENT                                        | Khóa chính                                         |
+| `student_id`             | BIGINT                                                    | **FK** | NOT NULL                                              | Học sinh                                           |
+| `lesson_id`              | BIGINT                                                    | **FK** | NOT NULL                                              | Bài học                                            |
+| `attempt_number`         | INT                                                       |        | NOT NULL DEFAULT 1                                    | Số lần học lại bài này của học sinh (bắt đầu từ 1) |
+| `status`                 | ENUM('NOT_STARTED','IN_PROGRESS','COMPLETED','REVIEWING') |        | DEFAULT 'NOT_STARTED'                                 | Trạng thái tiến độ                                 |
+| `completion_percent`     | DECIMAL(5,2)                                              |        | DEFAULT 0.00                                          | % hoàn thành bài                                   |
+| `viewed_materials_count` | INT                                                       |        | DEFAULT 0                                             | Số tài liệu đã xem                                 |
+| `minigame_attempt_count` | INT                                                       |        | DEFAULT 0                                             | Số lần làm minigame                                |
+| `minigame_score`         | DECIMAL(5,2)                                              |        | DEFAULT 0.00                                          | Điểm minigame hiện tại                             |
+| `last_score`             | DECIMAL(5,2)                                              |        | NULL                                                  | Điểm mới nhất                                      |
+| `time_spent_minutes`     | INT                                                       |        | DEFAULT 0                                             | Thời gian học                                      |
+| `started_at`             | DATETIME                                                  |        | NULL                                                  | Thời điểm bắt đầu                                  |
+| `completed_at`           | DATETIME                                                  |        | NULL                                                  | Thời điểm hoàn thành                               |
+| `last_activity_at`       | DATETIME                                                  |        | NULL                                                  | Hoạt động gần nhất                                 |
+| `notes`                  | TEXT                                                      |        | NULL                                                  | Ghi chú                                            |
+| `created_at`             | DATETIME                                                  |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo                                      |
+| `updated_at`             | DATETIME                                                  |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật                                 |
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `token_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `user_id` | BIGINT | **FK** | NOT NULL | Người sở hữu token |
-| `token_type` | ENUM('ACCESS','REFRESH','RESET_PASSWORD','EMAIL_VERIFICATION') |  | NOT NULL | Loại token |
-| `token_hash` | VARCHAR(255) |  | NOT NULL | Hash token |
-| `jti` | VARCHAR(64) | **UQ** | NOT NULL | JWT ID |
-| `expires_at` | DATETIME |  | NOT NULL | Hạn token |
-| `issued_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm phát hành |
-| `revoked_at` | DATETIME |  | NULL | Thời điểm thu hồi |
-| `used_at` | DATETIME |  | NULL | Thời điểm dùng |
-| `device_info` | VARCHAR(255) |  | NULL | Thông tin thiết bị |
-| `ip_address` | VARCHAR(45) |  | NULL | IP |
-| `user_agent` | VARCHAR(512) |  | NULL | User Agent |
-| `is_revoked` | BOOLEAN |  | DEFAULT FALSE | Có bị thu hồi hay không |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+> **Ghi chú:** Học sinh có thể **làm lại bài nhiều lần**; mỗi lần học lại sẽ tạo **1 bản ghi `LESSON_PROGRESS` mới** với `attempt_number` tăng dần. Do đó **không** áp dụng `UNIQUE(student_id, lesson_id)`. Bản ghi mới nhất của mỗi `(student_id, lesson_id)` được lấy theo `attempt_number DESC` (hoặc `created_at DESC`).
 
-#### 15. Bảng `AUDIT_LOGS` (Nhật ký kiểm toán)
+#### 14. Bảng `COMMENTS` (Bình luận Topic/Lesson)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `audit_log_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `actor_user_id` | BIGINT | **FK** | NULL | Người thực hiện |
-| `actor_role` | ENUM('STUDENT','TEACHER','ADMIN') |  | NULL | Vai trò người thao tác |
-| `action_type` | VARCHAR(100) |  | NOT NULL | Loại hành động |
-| `entity_type` | VARCHAR(100) |  | NOT NULL | Đối tượng bị tác động |
-| `entity_id` | BIGINT |  | NULL | ID đối tượng |
-| `old_value` | JSON |  | NULL | Giá trị cũ |
-| `new_value` | JSON |  | NULL | Giá trị mới |
-| `ip_address` | VARCHAR(45) |  | NULL | IP truy cập |
-| `user_agent` | VARCHAR(512) |  | NULL | User Agent |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm ghi log |
+| Tên trường          | Kiểu dữ liệu                      |  Khóa  | Ràng buộc                                             | Mô tả                            |
+| ------------------- | --------------------------------- | :----: | ----------------------------------------------------- | -------------------------------- |
+| `comment_id`        | BIGINT                            | **PK** | AUTO_INCREMENT                                        | Khóa chính                       |
+| `target_type`       | ENUM('TOPIC','LESSON')            |        | NOT NULL                                              | Bình luận thuộc Topic hay Lesson |
+| `target_id`         | BIGINT                            |        | NOT NULL                                              | ID của topic hoặc lesson         |
+| `parent_comment_id` | BIGINT                            | **FK** | NULL                                                  | Bình luận cha, nếu là reply      |
+| `author_user_id`    | BIGINT                            | **FK** | NOT NULL                                              | Người gửi                        |
+| `author_role`       | ENUM('STUDENT','TEACHER','ADMIN') |        | NOT NULL                                              | Vai trò người gửi                |
+| `content`           | TEXT                              |        | NOT NULL                                              | Nội dung bình luận               |
+| `status`            | ENUM('ACTIVE','HIDDEN','DELETED') |        | DEFAULT 'ACTIVE'                                      | Trạng thái bình luận             |
+| `like_count`        | INT                               |        | DEFAULT 0                                             | Số lượt thích                    |
+| `reply_count`       | INT                               |        | DEFAULT 0                                             | Số lượng reply                   |
+| `created_at`        | DATETIME                          |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo                    |
+| `updated_at`        | DATETIME                          |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật               |
 
-#### 16. Bảng `ACTIVITY_LOGS` (Nhật ký hoạt động)
+#### 15. Bảng `INVALID_TOKENS` (Token bị vô hiệu hóa — Blacklist)
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `activity_log_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `user_id` | BIGINT | **FK** | NULL | User thao tác |
-| `student_id` | BIGINT | **FK** | NULL | Học sinh nếu là hoạt động học viên |
-| `teacher_id` | BIGINT | **FK** | NULL | Giáo viên nếu là hoạt động giảng viên |
-| `topic_id` | BIGINT | **FK** | NULL | Topic liên quan |
-| `lesson_id` | BIGINT | **FK** | NULL | Lesson liên quan |
-| `action_type` | VARCHAR(100) |  | NOT NULL | Loại hành động |
-| `entity_type` | VARCHAR(100) |  | NOT NULL | Loại thực thể |
-| `entity_id` | BIGINT |  | NULL | ID đối tượng |
-| `metadata` | JSON |  | NULL | Dữ liệu bổ sung |
-| `ip_address` | VARCHAR(45) |  | NULL | IP truy cập |
-| `user_agent` | VARCHAR(512) |  | NULL | User Agent |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm ghi log |
+| Tên trường         | Kiểu dữ liệu                                                                        |  Khóa  | Ràng buộc                 | Mô tả                                           |
+| ------------------ | ----------------------------------------------------------------------------------- | :----: | ------------------------- | ----------------------------------------------- |
+| `invalid_token_id` | BIGINT                                                                              | **PK** | AUTO_INCREMENT            | Khóa chính                                      |
+| `user_id`          | BIGINT                                                                              | **FK** | NOT NULL                  | Người sở hữu token                              |
+| `jti`              | VARCHAR(64)                                                                         | **UQ** | NOT NULL                  | JWT ID (dùng để chặn token đã vô hiệu hóa)      |
+| `token_type`       | ENUM('ACCESS','REFRESH')                                                            |        | NOT NULL                  | Loại token bị vô hiệu hóa                       |
+| `token_hash`       | VARCHAR(255)                                                                        |        | NULL                      | Hash token (nếu cần đối chiếu)                  |
+| `reason`           | ENUM('LOGOUT','REFRESH_ROTATION','PASSWORD_CHANGE','ADMIN_REVOKE','SECURITY_ISSUE') |        | NOT NULL                  | Lý do vô hiệu hóa                               |
+| `invalidated_at`   | DATETIME                                                                            |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm vô hiệu hóa                           |
+| `expires_at`       | DATETIME                                                                            |        | NOT NULL                  | Hạn gốc của token (dùng để dọn bản ghi hết hạn) |
+| `ip_address`       | VARCHAR(45)                                                                         |        | NULL                      | IP tại thời điểm vô hiệu hóa                    |
+| `user_agent`       | VARCHAR(512)                                                                        |        | NULL                      | User Agent tại thời điểm vô hiệu hóa            |
 
-#### 17. Bảng `SYSTEM_ERROR_LOGS` (Nhật ký lỗi hệ thống)
+> **Ghi chú:** Với JWT **stateless**, hệ thống **không lưu toàn bộ token** mà **chỉ lưu các token đã bị vô hiệu hóa (`INVALID_TOKENS`)** để chặn logout / logout-all / đổi mật khẩu / thu hồi do admin hoặc bảo mật. Backend phải dọn định kỳ các dòng có `expires_at < NOW()`. |
 
-| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
-| ---------- | ------------ | :--: | -------- | ----- |
-| `error_log_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
-| `severity` | ENUM('INFO','WARNING','ERROR','CRITICAL') |  | DEFAULT 'ERROR' | Mức độ nghiêm trọng |
-| `error_code` | VARCHAR(100) |  | NULL | Mã lỗi |
-| `error_message` | TEXT |  | NOT NULL | Thông điệp lỗi |
-| `stack_trace` | TEXT |  | NULL | Stack trace |
-| `request_path` | VARCHAR(500) |  | NULL | URL gây lỗi |
-| `http_method` | VARCHAR(20) |  | NULL | Phương thức HTTP |
-| `status_code` | INT |  | NULL | Mã HTTP trả về |
-| `user_id` | BIGINT | **FK** | NULL | User liên quan |
-| `ip_address` | VARCHAR(45) |  | NULL | IP truy cập |
-| `user_agent` | VARCHAR(512) |  | NULL | User Agent |
-| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm ghi lỗi |
+#### 16. Bảng `AUDIT_LOGS` (Nhật ký kiểm toán)
+
+| Tên trường      | Kiểu dữ liệu                      |  Khóa  | Ràng buộc                 | Mô tả                  |
+| --------------- | --------------------------------- | :----: | ------------------------- | ---------------------- |
+| `audit_log_id`  | BIGINT                            | **PK** | AUTO_INCREMENT            | Khóa chính             |
+| `actor_user_id` | BIGINT                            | **FK** | NULL                      | Người thực hiện        |
+| `actor_role`    | ENUM('STUDENT','TEACHER','ADMIN') |        | NULL                      | Vai trò người thao tác |
+| `action_type`   | VARCHAR(100)                      |        | NOT NULL                  | Loại hành động         |
+| `entity_type`   | VARCHAR(100)                      |        | NOT NULL                  | Đối tượng bị tác động  |
+| `entity_id`     | BIGINT                            |        | NULL                      | ID đối tượng           |
+| `old_value`     | JSON                              |        | NULL                      | Giá trị cũ             |
+| `new_value`     | JSON                              |        | NULL                      | Giá trị mới            |
+| `ip_address`    | VARCHAR(45)                       |        | NULL                      | IP truy cập            |
+| `user_agent`    | VARCHAR(512)                      |        | NULL                      | User Agent             |
+| `created_at`    | DATETIME                          |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm ghi log      |
+
+#### 17. Bảng `ACTIVITY_LOGS` (Nhật ký hoạt động)
+
+| Tên trường        | Kiểu dữ liệu |  Khóa  | Ràng buộc                 | Mô tả                                 |
+| ----------------- | ------------ | :----: | ------------------------- | ------------------------------------- |
+| `activity_log_id` | BIGINT       | **PK** | AUTO_INCREMENT            | Khóa chính                            |
+| `user_id`         | BIGINT       | **FK** | NULL                      | User thao tác                         |
+| `student_id`      | BIGINT       | **FK** | NULL                      | Học sinh nếu là hoạt động học viên    |
+| `teacher_id`      | BIGINT       | **FK** | NULL                      | Giáo viên nếu là hoạt động giảng viên |
+| `topic_id`        | BIGINT       | **FK** | NULL                      | Topic liên quan                       |
+| `lesson_id`       | BIGINT       | **FK** | NULL                      | Lesson liên quan                      |
+| `action_type`     | VARCHAR(100) |        | NOT NULL                  | Loại hành động                        |
+| `entity_type`     | VARCHAR(100) |        | NOT NULL                  | Loại thực thể                         |
+| `entity_id`       | BIGINT       |        | NULL                      | ID đối tượng                          |
+| `metadata`        | JSON         |        | NULL                      | Dữ liệu bổ sung                       |
+| `ip_address`      | VARCHAR(45)  |        | NULL                      | IP truy cập                           |
+| `user_agent`      | VARCHAR(512) |        | NULL                      | User Agent                            |
+| `created_at`      | DATETIME     |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm ghi log                     |
+
+#### 18. Bảng `SYSTEM_ERROR_LOGS` (Nhật ký lỗi hệ thống)
+
+| Tên trường      | Kiểu dữ liệu                              |  Khóa  | Ràng buộc                 | Mô tả               |
+| --------------- | ----------------------------------------- | :----: | ------------------------- | ------------------- |
+| `error_log_id`  | BIGINT                                    | **PK** | AUTO_INCREMENT            | Khóa chính          |
+| `severity`      | ENUM('INFO','WARNING','ERROR','CRITICAL') |        | DEFAULT 'ERROR'           | Mức độ nghiêm trọng |
+| `error_code`    | VARCHAR(100)                              |        | NULL                      | Mã lỗi              |
+| `error_message` | TEXT                                      |        | NOT NULL                  | Thông điệp lỗi      |
+| `stack_trace`   | TEXT                                      |        | NULL                      | Stack trace         |
+| `request_path`  | VARCHAR(500)                              |        | NULL                      | URL gây lỗi         |
+| `http_method`   | VARCHAR(20)                               |        | NULL                      | Phương thức HTTP    |
+| `status_code`   | INT                                       |        | NULL                      | Mã HTTP trả về      |
+| `user_id`       | BIGINT                                    | **FK** | NULL                      | User liên quan      |
+| `ip_address`    | VARCHAR(45)                               |        | NULL                      | IP truy cập         |
+| `user_agent`    | VARCHAR(512)                              |        | NULL                      | User Agent          |
+| `created_at`    | DATETIME                                  |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm ghi lỗi   |
 
 ---
 
@@ -603,7 +629,6 @@ CREATE TABLE students (
     current_level ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED') NOT NULL DEFAULT 'BEGINNER',
     total_points DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     completed_topics JSON NULL,
-    certificates JSON NULL,
     learning_goals JSON NULL,
     last_login_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -618,7 +643,6 @@ CREATE TABLE teachers (
     phone VARCHAR(20) NULL,
     gender ENUM('MALE', 'FEMALE', 'OTHER') NULL,
     date_of_birth DATE NULL,
-    degree VARCHAR(100) NULL,
     academic_title VARCHAR(100) NULL,
     highest_education VARCHAR(255) NULL,
     graduate_school VARCHAR(255) NULL,
@@ -631,6 +655,19 @@ CREATE TABLE teachers (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_teachers_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE teacher_certificates (
+    certificate_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    teacher_id BIGINT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    score VARCHAR(50) NULL,
+    issuing_body VARCHAR(255) NULL,
+    status ENUM('PENDING', 'VERIFIED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    image_url VARCHAR(500) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_teacher_certificates_teacher FOREIGN KEY (teacher_id) REFERENCES teachers(teacher_id) ON DELETE CASCADE
 );
 
 CREATE TABLE topics (
@@ -732,6 +769,7 @@ CREATE TABLE lesson_progress (
     progress_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     student_id BIGINT NOT NULL,
     lesson_id BIGINT NOT NULL,
+    attempt_number INT NOT NULL DEFAULT 1,
     status ENUM('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'REVIEWING') NOT NULL DEFAULT 'NOT_STARTED',
     completion_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     viewed_materials_count INT NOT NULL DEFAULT 0,
@@ -745,7 +783,6 @@ CREATE TABLE lesson_progress (
     notes TEXT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT uq_student_lesson UNIQUE (student_id, lesson_id),
     CONSTRAINT fk_progress_student FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
     CONSTRAINT fk_progress_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE CASCADE
 );
@@ -767,22 +804,18 @@ CREATE TABLE comments (
     CONSTRAINT fk_comments_author FOREIGN KEY (author_user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
-CREATE TABLE user_tokens (
-    token_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+CREATE TABLE invalid_tokens (
+    invalid_token_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    token_type ENUM('ACCESS', 'REFRESH', 'RESET_PASSWORD', 'EMAIL_VERIFICATION') NOT NULL,
-    token_hash VARCHAR(255) NOT NULL,
     jti VARCHAR(64) NOT NULL UNIQUE,
+    token_type ENUM('ACCESS', 'REFRESH') NOT NULL,
+    token_hash VARCHAR(255) NULL,
+    reason ENUM('LOGOUT', 'REFRESH_ROTATION', 'PASSWORD_CHANGE', 'ADMIN_REVOKE', 'SECURITY_ISSUE') NOT NULL,
+    invalidated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at DATETIME NOT NULL,
-    issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    revoked_at DATETIME NULL,
-    used_at DATETIME NULL,
-    device_info VARCHAR(255) NULL,
     ip_address VARCHAR(45) NULL,
     user_agent VARCHAR(512) NULL,
-    is_revoked BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_user_tokens_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    CONSTRAINT fk_invalid_tokens_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE audit_logs (
@@ -837,17 +870,19 @@ CREATE TABLE system_error_logs (
     CONSTRAINT fk_system_error_logs_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
+CREATE INDEX idx_teacher_certificates_teacher ON teacher_certificates(teacher_id);
 CREATE INDEX idx_topics_teacher ON topics(teacher_id);
 CREATE INDEX idx_lessons_topic ON lessons(topic_id, order_index);
 CREATE INDEX idx_materials_lesson ON lesson_materials(lesson_id);
 CREATE INDEX idx_vocab_lesson ON vocabulary_items(lesson_id);
 CREATE INDEX idx_questions_minigame_order ON minigame_questions(minigame_id, question_order);
 CREATE INDEX idx_attempts_student_game ON minigame_attempts(student_id, minigame_id, attempted_at DESC);
+CREATE INDEX idx_progress_student_lesson ON lesson_progress(student_id, lesson_id, attempt_number);
 CREATE INDEX idx_progress_student_status ON lesson_progress(student_id, status);
 CREATE INDEX idx_enrollment_student_topic ON topics_enrollment(student_id, topic_id);
 CREATE INDEX idx_comments_target ON comments(target_type, target_id, created_at DESC);
 CREATE INDEX idx_comments_parent ON comments(parent_comment_id, created_at DESC);
-CREATE INDEX idx_user_tokens_user_type ON user_tokens(user_id, token_type, expires_at);
+CREATE INDEX idx_invalid_tokens_user_exp ON invalid_tokens(user_id, expires_at);
 CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id, created_at DESC);
 CREATE INDEX idx_activity_logs_user_time ON activity_logs(user_id, created_at DESC);
 CREATE INDEX idx_error_logs_time ON system_error_logs(created_at DESC);
@@ -891,16 +926,16 @@ CREATE INDEX idx_error_logs_time ON system_error_logs(created_at DESC);
 
 ## 5. MA TRẬN ÁNH XẠ KIẾN TRÚC LƯU TRỮ (STORAGE MAPPING)
 
-| Thực thể / Chức năng | Cơ sở dữ liệu | Lý do lựa chọn |
-| -------------------- | ------------ | -------------- |
-| **Users / Auth** | **MySQL** | Quan hệ phân quyền RBAC rõ ràng; kiểm tra tính duy nhất email/username; ràng buộc khóa ngoại an toàn. |
-| **Students / Teachers** | **MySQL** | Hồ sơ cá nhân và thông tin học thuật là dữ liệu có cấu trúc, dễ query, dễ phân quyền và dễ báo cáo. |
-| **Topics & Lessons** | **MySQL** | Dữ liệu quan hệ chặt chẽ với thứ tự bài học và cấu trúc cố định. |
-| **Materials & Vocab** | **MySQL** | Bảng có schema rõ ràng, phù hợp upload file, parsing CSV và quản lý cascade. |
-| **Lesson Progress / Attempts** | **MySQL** | Yêu cầu tính toàn vẹn và ACID khi cập nhật điểm, trạng thái và tiến độ. |
-| **Minigame Questions** | **MySQL** | Mỗi câu hỏi là thực thể có trường đáp án và thứ tự cụ thể, phù hợp schema bảng chuẩn. |
-| **Comments & Replies** | **MySQL** | Dùng `parent_comment_id` để biểu diễn cây phản hồi mà vẫn giữ toàn bộ ở cùng DB. |
-| **Audit Logs / Activity Logs / System Error Logs** | **MySQL** | Dữ liệu quan trọng cần query, filter, phân tích và kiểm toán theo thời gian. |
+| Thực thể / Chức năng                               | Cơ sở dữ liệu | Lý do lựa chọn                                                                                        |
+| -------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------- |
+| **Users / Auth**                                   | **MySQL**     | Quan hệ phân quyền RBAC rõ ràng; kiểm tra tính duy nhất email/username; ràng buộc khóa ngoại an toàn. |
+| **Students / Teachers**                            | **MySQL**     | Hồ sơ cá nhân và thông tin học thuật là dữ liệu có cấu trúc, dễ query, dễ phân quyền và dễ báo cáo.   |
+| **Topics & Lessons**                               | **MySQL**     | Dữ liệu quan hệ chặt chẽ với thứ tự bài học và cấu trúc cố định.                                      |
+| **Materials & Vocab**                              | **MySQL**     | Bảng có schema rõ ràng, phù hợp upload file, parsing CSV và quản lý cascade.                          |
+| **Lesson Progress / Attempts**                     | **MySQL**     | Yêu cầu tính toàn vẹn và ACID khi cập nhật điểm, trạng thái và tiến độ.                               |
+| **Minigame Questions**                             | **MySQL**     | Mỗi câu hỏi là thực thể có trường đáp án và thứ tự cụ thể, phù hợp schema bảng chuẩn.                 |
+| **Comments & Replies**                             | **MySQL**     | Dùng `parent_comment_id` để biểu diễn cây phản hồi mà vẫn giữ toàn bộ ở cùng DB.                      |
+| **Audit Logs / Activity Logs / System Error Logs** | **MySQL**     | Dữ liệu quan trọng cần query, filter, phân tích và kiểm toán theo thời gian.                          |
 
 ---
 
