@@ -2,28 +2,29 @@
 
 ## Nền tảng Học tiếng Anh Trực tuyến Đa nền tảng (Web & Mobile App)
 
-**Kiến trúc:** Polyglot Persistence (Relational Database MySQL/PostgreSQL + NoSQL MongoDB)  
-**Phiên bản:** 2.1  
-**Ngày cập nhật:** 22/08/2026
+**Kiến trúc:** MySQL-only relational database (không dùng MongoDB)  
+**Phiên bản:** 2.2  
+**Ngày cập nhật:** 01/09/2026
 
 ---
 
-## 1. TỔNG QUAN KIẾN TRÚC LƯU TRỮ (HYBRID ARCHITECTURE)
+## 1. TỔNG QUAN KIẾN TRÚC LƯU TRỮ (MYSQL-ONLY ARCHITECTURE)
 
-Hệ thống áp dụng mô hình lưu trữ đa cơ sở dữ liệu (**Polyglot Persistence**) nhằm cân bằng giữa tính toàn vẹn dữ liệu (ACID) của các nghiệp vụ cốt lõi và sự linh hoạt, tốc độ đọc ghi cao của NoSQL:
+Hệ thống áp dụng mô hình lưu trữ **MySQL thuần** để đảm bảo tính nhất quán dữ liệu, dễ kiểm soát ràng buộc quan hệ và dễ mở rộng theo nghiệp vụ học tập, phân quyền, tiến độ, minigame, bình luận và log hệ thống.
 
-1. **Relational Database (MySQL / PostgreSQL - 8 Bảng):**
-   - Đảm nhiệm nghiệp vụ có cấu trúc cố định, quan hệ ràng buộc chặt chẽ và yêu cầu giao dịch ACID cao.
-   - Bao gồm: Quản lý người dùng, phân quyền (RBAC), danh mục chủ đề, bài học, tài liệu học tập, từ vựng chuẩn hóa, tiến độ học tập và quản lý minigame.
+1. **Relational Database (MySQL - 16 bảng chính):**
+   - Đảm nhiệm toàn bộ nghiệp vụ cốt lõi: người dùng, student profile, teacher profile, quyền hạn, chủ đề, bài học, tài liệu, từ vựng, minigame, tiến độ, logs và bình luận.
+   - Các dữ liệu linh hoạt như hồ sơ học thuật, chứng chỉ, danh sách topic đã học, metadata hoạt động được lưu dưới dạng `JSON` trong MySQL để giữ tính mềm dẻo nhưng vẫn nằm trong cùng một hệ quản trị.
 
-2. **NoSQL Database (MongoDB - 5 Collections):**
-   - **Nghiệp vụ linh hoạt & Phân cấp (2 Collections):**
-     - `minigame_questions`: Lưu trữ cấu trúc câu hỏi đa dạng (trắc nghiệm, nối từ, điền từ) dưới dạng JSON đa hình (polymorphic).
-     - `comments`: Lưu trữ cây bình luận lồng nhau đa cấp (Nested/Embedded Replies) có hiệu năng đọc cao.
-   - **Nhật ký & Giám sát Hệ thống (3 Collections Logging):**
-     - `audit_logs`: Nhật ký kiểm toán các thao tác quản trị nhạy cảm (phân quyền, xóa nội dung).
-     - `activity_logs`: Nhật ký tương tác học tập của học viên (mở video, tải PDF, click bài giảng).
-     - `system_error_logs`: Nhật ký lỗi runtime, ngoại lệ (Exceptions) từ API/Worker backend phục vụ giám sát và khắc phục sự cố.
+2. **Không còn MongoDB trong kiến trúc hiện tại:**
+   - `minigame_questions` được lưu trong bảng SQL chuẩn theo cấu trúc bảng `minigame_questions`.
+   - `comments` được lưu trong bảng SQL chuẩn `comments` với khả năng reply lồng nhau bằng `parent_comment_id`.
+   - `audit_logs`, `activity_logs`, `system_error_logs` được lưu trong các bảng SQL riêng để dễ truy vấn, lọc và báo cáo.
+
+3. **Nguyên tắc thiết kế dữ liệu:**
+   - Mọi quan hệ business-critical đều là FK trong MySQL.
+   - Mọi dữ liệu có tính không cố định hoặc dạng JSON như chứng chỉ, học thuật, lịch sử hoạt động được lưu là `JSON`.
+   - Không phát sinh phụ thuộc vào NoSQL trong hệ thống này.
 
 ---
 
@@ -33,39 +34,78 @@ Hệ thống áp dụng mô hình lưu trữ đa cơ sở dữ liệu (**Polyglo
 
 ```mermaid
 erDiagram
-    %% SQL Relational Tables
-    USERS ||--o{ TOPICS : "teaches/creates"
-    USERS ||--o{ MINIGAME_ATTEMPTS : "takes"
-    USERS ||--o{ LESSON_PROGRESS : "tracks"
+    USERS ||--o| STUDENTS : "has profile"
+    USERS ||--o| TEACHERS : "has profile"
+    USERS ||--o{ TOPICS : "creates"
+    USERS ||--o{ USER_TOKENS : "owns"
+    USERS ||--o{ AUDIT_LOGS : "performs"
+    USERS ||--o{ ACTIVITY_LOGS : "generates"
+    USERS ||--o{ SYSTEM_ERROR_LOGS : "causes"
 
+    STUDENTS ||--o{ TOPICS_ENROLLMENT : "joins"
+    STUDENTS ||--o{ LESSON_PROGRESS : "tracks"
+    STUDENTS ||--o{ MINIGAME_ATTEMPTS : "submits"
+
+    TOPICS ||--o{ TOPICS_ENROLLMENT : "has members"
     TOPICS ||--|{ LESSONS : "contains"
 
     LESSONS ||--o{ LESSON_MATERIALS : "has"
-    LESSONS ||--o{ VOCABULARY_ITEMS : "parsed_into"
-    LESSONS ||--o{ MINIGAMES : "includes"
+    LESSONS ||--o{ VOCABULARY_ITEMS : "contains"
+    LESSONS ||--o{ MINIGAMES : "contains"
+    LESSONS ||--o{ COMMENTS : "targets"
     LESSONS ||--o{ LESSON_PROGRESS : "tracked_by"
 
+    MINIGAMES ||--o{ MINIGAME_QUESTIONS : "includes"
     MINIGAMES ||--o{ MINIGAME_ATTEMPTS : "records"
 
-    %% Cross-Database References (SQL to MongoDB)
-    MINIGAMES ||--|{ MINIGAME_QUESTIONS_COLLECTION : "embeds_id_to"
-    VOCABULARY_ITEMS ||--o{ MINIGAME_QUESTIONS_COLLECTION : "referenced_by"
-    LESSONS ||--o{ COMMENTS_COLLECTION : "receives_target"
-    TOPICS ||--o{ COMMENTS_COLLECTION : "receives_target"
-    USERS ||--o{ COMMENTS_COLLECTION : "authors"
-    USERS ||--o{ AUDIT_LOGS_COLLECTION : "performed_by"
-    USERS ||--o{ ACTIVITY_LOGS_COLLECTION : "generates_event"
+    TOPICS ||--o{ COMMENTS : "targets"
+    COMMENTS ||--o{ COMMENTS : "replies_to"
 
-    %% SQL Entities
     USERS {
         bigint user_id PK
         varchar full_name
         varchar username UK
         varchar email UK
         varchar password_hash
-        enum role "STUDENT, TEACHER, ADMIN"
-        enum status "ACTIVE, LOCKED"
+        varchar avatar_url
+        enum role
+        enum status
         datetime created_at
+        datetime updated_at
+    }
+
+    STUDENTS {
+        bigint student_id PK
+        bigint user_id FK
+        varchar student_code
+        date date_of_birth
+        enum gender
+        varchar phone
+        varchar address
+        text bio
+        enum current_level
+        decimal total_points
+        json completed_topics
+        json certificates
+        json learning_goals
+        datetime last_login_at
+    }
+
+    TEACHERS {
+        bigint teacher_id PK
+        bigint user_id FK
+        varchar teacher_code
+        varchar phone
+        varchar degree
+        varchar academic_title
+        varchar highest_education
+        varchar graduate_school
+        varchar specialization
+        int teaching_experience_years
+        text bio
+        json research_areas
+        json academic_history
+        json awards
     }
 
     TOPICS {
@@ -89,7 +129,7 @@ erDiagram
     LESSON_MATERIALS {
         bigint material_id PK
         bigint lesson_id FK
-        enum type "VIDEO, PDF, WORD"
+        enum type
         varchar file_url
         datetime created_at
     }
@@ -107,8 +147,24 @@ erDiagram
         bigint minigame_id PK
         bigint lesson_id FK
         varchar title
-        enum status "DRAFT, PUBLISHED"
+        enum status
         datetime created_at
+    }
+
+    MINIGAME_QUESTIONS {
+        bigint question_id PK
+        bigint minigame_id FK
+        bigint vocab_id FK
+        text question_text
+        varchar option_a
+        varchar option_b
+        varchar option_c
+        varchar option_d
+        enum correct_option
+        text explanation
+        enum difficulty
+        int question_order
+        boolean is_active
     }
 
     MINIGAME_ATTEMPTS {
@@ -120,43 +176,100 @@ erDiagram
         datetime attempted_at
     }
 
+    TOPICS_ENROLLMENT {
+        bigint enrollment_id PK
+        bigint student_id FK
+        bigint topic_id FK
+        enum status
+        decimal progress_percent
+        datetime enrolled_at
+        datetime last_activity_at
+        datetime completed_at
+    }
+
     LESSON_PROGRESS {
         bigint progress_id PK
         bigint student_id FK
         bigint lesson_id FK
-        enum status "IN_PROGRESS, COMPLETED"
-        datetime updated_at
+        enum status
+        decimal completion_percent
+        int viewed_materials_count
+        int minigame_attempt_count
+        decimal minigame_score
+        decimal last_score
+        int time_spent_minutes
+        datetime started_at
+        datetime completed_at
+        datetime last_activity_at
+        text notes
     }
 
-    %% MongoDB Collections
-    MINIGAME_QUESTIONS_COLLECTION {
-        ObjectId _id PK
-        int64 minigame_id FK_SQL
-        int64 vocab_id FK_SQL_opt
-        string question_type
-        json payload
+    USER_TOKENS {
+        bigint token_id PK
+        bigint user_id FK
+        enum token_type
+        varchar token_hash
+        varchar jti
+        datetime expires_at
+        datetime issued_at
+        datetime revoked_at
+        datetime used_at
+        boolean is_revoked
     }
 
-    COMMENTS_COLLECTION {
-        ObjectId _id PK
-        json target "type: TOPIC/LESSON, id: SQL_ID"
-        json author "user_id, name, role"
-        string content
-        array replies "Nested embedded replies"
+    COMMENTS {
+        bigint comment_id PK
+        enum target_type
+        bigint target_id
+        bigint parent_comment_id FK
+        bigint author_user_id FK
+        enum author_role
+        text content
+        enum status
+        int like_count
+        int reply_count
     }
 
-    AUDIT_LOGS_COLLECTION {
-        ObjectId _id PK
-        json actor "user_id, email, role"
-        string action
-        json details
+    AUDIT_LOGS {
+        bigint audit_log_id PK
+        bigint actor_user_id FK
+        enum actor_role
+        varchar action_type
+        varchar entity_type
+        bigint entity_id
+        json old_value
+        json new_value
+        varchar ip_address
+        varchar user_agent
     }
 
-    ACTIVITY_LOGS_COLLECTION {
-        ObjectId _id PK
-        int64 student_id FK_SQL
-        string event_type
-        json context
+    ACTIVITY_LOGS {
+        bigint activity_log_id PK
+        bigint user_id FK
+        bigint student_id FK
+        bigint teacher_id FK
+        bigint topic_id FK
+        bigint lesson_id FK
+        varchar action_type
+        varchar entity_type
+        bigint entity_id
+        json metadata
+        varchar ip_address
+        varchar user_agent
+    }
+
+    SYSTEM_ERROR_LOGS {
+        bigint error_log_id PK
+        enum severity
+        varchar error_code
+        text error_message
+        text stack_trace
+        varchar request_path
+        varchar http_method
+        int status_code
+        bigint user_id FK
+        varchar ip_address
+        varchar user_agent
     }
 ```
 
@@ -164,157 +277,388 @@ erDiagram
 
 ### 2.2. Bảng Ma trận Quan hệ Chi tiết (Relationship Matrix)
 
-| Bảng nguồn (Parent / Source) | Bảng đích (Child / Target) | Loại quan hệ | Khóa ngoại (Foreign Key)                                     | Quy tắc toàn vẹn (Cascade Rule) | Mô tả nghiệp vụ                                                                            |
-| ---------------------------- | -------------------------- | :----------: | ------------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------ |
-| `USERS`                      | `TOPICS`                   |  **1 – N**   | `TOPICS.teacher_id` $ o$ `USERS.user_id`                     | `ON DELETE RESTRICT`            | Một giáo viên phụ trách nhiều chủ đề; không thể xóa user nếu đang là chủ nhiệm của chủ đề. |
-| `TOPICS`                     | `LESSONS`                  |  **1 – N**   | `LESSONS.topic_id` $ o$ `TOPICS.topic_id`                    | `ON DELETE CASCADE`             | Một chủ đề chứa nhiều bài học tuần tự; xóa chủ đề sẽ xóa toàn bộ bài học bên trong.        |
-| `LESSONS`                    | `LESSON_MATERIALS`         |  **1 – N**   | `LESSON_MATERIALS.lesson_id` $ o$ `LESSONS.lesson_id`        | `ON DELETE CASCADE`             | Một bài học chứa nhiều tài liệu đa phương tiện (Video, PDF, Word).                         |
-| `LESSONS`                    | `VOCABULARY_ITEMS`         |  **1 – N**   | `VOCABULARY_ITEMS.lesson_id` $ o$ `LESSONS.lesson_id`        | `ON DELETE CASCADE`             | Một bài học chứa nhiều từ vựng được parse từ file CSV.                                     |
-| `LESSONS`                    | `MINIGAMES`                |  **1 – N**   | `MINIGAMES.lesson_id` $ o$ `LESSONS.lesson_id`               | `ON DELETE CASCADE`             | Một bài học có thể gắn kèm 1 hoặc nhiều bài tập minigame ôn tập.                           |
-| `MINIGAMES`                  | `MINIGAME_ATTEMPTS`        |  **1 – N**   | `MINIGAME_ATTEMPTS.minigame_id` $ o$ `MINIGAMES.minigame_id` | `ON DELETE CASCADE`             | Một minigame ghi nhận nhiều lượt nộp bài từ học sinh.                                      |
-| `USERS`                      | `MINIGAME_ATTEMPTS`        |  **1 – N**   | `MINIGAME_ATTEMPTS.student_id` $ o$ `USERS.user_id`          | `ON DELETE CASCADE`             | Một học sinh có thể làm minigame nhiều lần để cải thiện điểm số.                           |
-| `USERS`                      | `LESSON_PROGRESS`          |  **1 – N**   | `LESSON_PROGRESS.student_id` $ o$ `USERS.user_id`            | `ON DELETE CASCADE`             | Một học sinh có bản ghi theo dõi tiến độ riêng cho từng bài học.                           |
-| `LESSONS`                    | `LESSON_PROGRESS`          |  **1 – N**   | `LESSON_PROGRESS.lesson_id` $ o$ `LESSONS.lesson_id`         | `ON DELETE CASCADE`             | Một bài học được theo dõi tiến độ độc lập bởi nhiều học sinh.                              |
+| Bảng nguồn (Parent / Source) | Bảng đích (Child / Target) | Loại quan hệ | Khóa ngoại (Foreign Key) | Quy tắc toàn vẹn (Cascade Rule) | Mô tả nghiệp vụ |
+| ---------------------------- | -------------------------- | :----------: | ------------------------ | ------------------------------- | --------------- |
+| `USERS` | `STUDENTS` | **1 – 1** | `STUDENTS.user_id` → `USERS.user_id` | `ON DELETE CASCADE` | Mỗi người dùng học sinh có hồ sơ cá nhân riêng. |
+| `USERS` | `TEACHERS` | **1 – 1** | `TEACHERS.user_id` → `USERS.user_id` | `ON DELETE CASCADE` | Mỗi người dùng giáo viên có hồ sơ chuyên môn riêng. |
+| `USERS` | `TOPICS` | **1 – N** | `TOPICS.teacher_id` → `USERS.user_id` | `ON DELETE RESTRICT` | Một giáo viên quản lý nhiều chủ đề. |
+| `STUDENTS` | `TOPICS_ENROLLMENT` | **1 – N** | `TOPICS_ENROLLMENT.student_id` → `STUDENTS.student_id` | `ON DELETE CASCADE` | Học sinh tham gia nhiều topic. |
+| `TOPICS` | `TOPICS_ENROLLMENT` | **1 – N** | `TOPICS_ENROLLMENT.topic_id` → `TOPICS.topic_id` | `ON DELETE CASCADE` | Topic có nhiều học sinh đăng ký. |
+| `TOPICS` | `LESSONS` | **1 – N** | `LESSONS.topic_id` → `TOPICS.topic_id` | `ON DELETE CASCADE` | Một chủ đề có nhiều bài học. |
+| `LESSONS` | `LESSON_MATERIALS` | **1 – N** | `LESSON_MATERIALS.lesson_id` → `LESSONS.lesson_id` | `ON DELETE CASCADE` | Một bài học có nhiều tài liệu. |
+| `LESSONS` | `VOCABULARY_ITEMS` | **1 – N** | `VOCABULARY_ITEMS.lesson_id` → `LESSONS.lesson_id` | `ON DELETE CASCADE` | Một bài học chứa nhiều từ vựng. |
+| `LESSONS` | `MINIGAMES` | **1 – N** | `MINIGAMES.lesson_id` → `LESSONS.lesson_id` | `ON DELETE CASCADE` | Mỗi bài học có thể có nhiều minigame. |
+| `MINIGAMES` | `MINIGAME_QUESTIONS` | **1 – N** | `MINIGAME_QUESTIONS.minigame_id` → `MINIGAMES.minigame_id` | `ON DELETE CASCADE` | Một minigame có nhiều câu hỏi. |
+| `MINIGAMES` | `MINIGAME_ATTEMPTS` | **1 – N** | `MINIGAME_ATTEMPTS.minigame_id` → `MINIGAMES.minigame_id` | `ON DELETE CASCADE` | Một minigame có nhiều lượt làm bài. |
+| `STUDENTS` | `MINIGAME_ATTEMPTS` | **1 – N** | `MINIGAME_ATTEMPTS.student_id` → `STUDENTS.student_id` | `ON DELETE CASCADE` | Học sinh có nhiều lượt làm bài. |
+| `STUDENTS` | `LESSON_PROGRESS` | **1 – N** | `LESSON_PROGRESS.student_id` → `STUDENTS.student_id` | `ON DELETE CASCADE` | Học sinh theo dõi tiến độ mỗi bài học. |
+| `LESSONS` | `LESSON_PROGRESS` | **1 – N** | `LESSON_PROGRESS.lesson_id` → `LESSONS.lesson_id` | `ON DELETE CASCADE` | Một bài học theo dõi tiến độ của nhiều học sinh. |
+| `COMMENTS` | `COMMENTS` | **1 – N** | `COMMENTS.parent_comment_id` → `COMMENTS.comment_id` | `ON DELETE CASCADE` | Hỗ trợ cây phản hồi (reply thread). |
+| `USERS` | `USER_TOKENS` | **1 – N** | `USER_TOKENS.user_id` → `USERS.user_id` | `ON DELETE CASCADE` | Mỗi user có nhiều token. |
+| `USERS` | `AUDIT_LOGS` | **1 – N** | `AUDIT_LOGS.actor_user_id` → `USERS.user_id` | `ON DELETE SET NULL` | Lưu lịch sử thao tác quản trị. |
+| `USERS` | `ACTIVITY_LOGS` | **1 – N** | `ACTIVITY_LOGS.user_id` → `USERS.user_id` | `ON DELETE SET NULL` | Lưu hoạt động người dùng. |
+| `USERS` | `SYSTEM_ERROR_LOGS` | **1 – N** | `SYSTEM_ERROR_LOGS.user_id` → `USERS.user_id` | `ON DELETE SET NULL` | Ghi lỗi hệ thống liên quan user. |
 
 ---
 
-### 2.3. Ma trận Tham chiếu Chéo Cơ sở dữ liệu (Cross-Database References: SQL $\leftrightarrow$ MongoDB)
+## 3. THIẾT KẾ CHI TIẾT CSDL QUAN HỆ (RDBMS - 17 BẢNG CHÍNH)
 
-Do hệ thống sử dụng kiến trúc lai, việc liên kết giữa các bảng SQL và MongoDB Collections được quản lý logic tại **Application Service Layer**:
-
-| SQL Entity (Source)                     | MongoDB Collection (Target) | Khóa liên kết Logic                           | Hướng truy xuất & Tối ưu hóa                                                                                                                         |
-| --------------------------------------- | --------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MINIGAMES.minigame_id`                 | `minigame_questions`        | `minigame_questions.minigame_id`              | **1 – N**: Khi học sinh bắt đầu làm quiz, backend query MongoDB theo `minigame_id` để lấy toàn bộ câu hỏi và danh sách options JSON.                 |
-| `VOCABULARY_ITEMS.vocab_id`             | `minigame_questions`        | `minigame_questions.vocab_id` (nullable)      | **1 – N**: Truy vết câu hỏi bắt nguồn từ từ vựng nào để phục vụ phân tích câu hỏi hay bị làm sai.                                                    |
-| `LESSONS.lesson_id` / `TOPICS.topic_id` | `comments`                  | `comments.target.id` & `comments.target.type` | **1 – N**: Lấy cây thảo luận của bài học/chủ đề bằng 1 query duy nhất kết hợp phân trang `skip/limit`.                                               |
-| `USERS.user_id`                         | `comments`                  | `comments.author.user_id`                     | **Snapshot Pattern**: Lưu trực tiếp `full_name`, `avatar_url`, `role` vào MongoDB Document để tránh phải query JOIN sang SQL khi hiển thị bình luận. |
-| `USERS.user_id`                         | `audit_logs`                | `audit_logs.actor.user_id`                    | **1 – N**: Truy vết lịch sử thao tác của Admin/Teacher khi kiểm toán bảo mật.                                                                        |
-| `USERS.user_id`                         | `activity_logs`             | `activity_logs.student_id`                    | **1 – N**: Thu thập log tương tác thời gian thực của học sinh trên Web và Mobile App.                                                                |
-
----
-
-## 3. THIẾT KẾ CHI TIẾT CSDL QUAN HỆ (RDBMS - 8 BẢNG)
-
-### 3.1. Chi tiết Đặc tả 8 Bảng SQL
+### 3.1. Chi tiết Đặc tả 17 Bảng SQL
 
 #### 1. Bảng `USERS` (Tài khoản & Phân quyền)
 
-| Tên trường      | Kiểu dữ liệu |  Khóa  | Ràng buộc                           | Mô tả & Ý nghĩa nghiệp vụ                       |
-| --------------- | ------------ | :----: | ----------------------------------- | ----------------------------------------------- |
-| `user_id`       | BIGINT       | **PK** | AUTO_INCREMENT                      | Khóa chính định danh tài khoản                  |
-| `full_name`     | VARCHAR(255) |        | NOT NULL                            | Họ và tên hiển thị trên hệ thống                |
-| `username`      | VARCHAR(50)  | **UQ** | NOT NULL, UNIQUE                    | Tên tài khoản đăng nhập (dùng thay email)       |
-| `email`         | VARCHAR(255) | **UQ** | NOT NULL, UNIQUE                    | Địa chỉ email đăng nhập và nhận thông báo       |
-| `password_hash` | VARCHAR(255) |        | NOT NULL                            | Mật khẩu băm (Bcrypt cost 12 hoặc Argon2id)     |
-| `role`          | VARCHAR(20)  |        | NOT NULL, DEFAULT 'STUDENT'         | Phân quyền: `'STUDENT'`, `'TEACHER'`, `'ADMIN'` |
-| `status`        | VARCHAR(20)  |        | NOT NULL, DEFAULT 'ACTIVE'          | Trạng thái: `'ACTIVE'`, `'LOCKED'`              |
-| `created_at`    | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo tài khoản                         |
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `user_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính người dùng |
+| `full_name` | VARCHAR(255) |  | NOT NULL | Họ và tên |
+| `username` | VARCHAR(50) | **UQ** | NOT NULL | Tên đăng nhập duy nhất |
+| `email` | VARCHAR(255) | **UQ** | NOT NULL | Email đăng nhập |
+| `password_hash` | VARCHAR(255) |  | NOT NULL | Mật khẩu đã băm |
+| `avatar_url` | VARCHAR(500) |  | NULL | Ảnh đại diện |
+| `role` | ENUM('STUDENT','TEACHER','ADMIN') |  | NOT NULL DEFAULT 'STUDENT' | Vai trò |
+| `status` | ENUM('ACTIVE','LOCKED','INACTIVE') |  | NOT NULL DEFAULT 'ACTIVE' | Trạng thái |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
 
-#### 2. Bảng `TOPICS` (Chủ đề học tập)
+#### 2. Bảng `STUDENTS` (Hồ sơ học sinh)
 
-| Tên trường    | Kiểu dữ liệu |  Khóa  | Ràng buộc                           | Mô tả & Ý nghĩa nghiệp vụ                            |
-| ------------- | ------------ | :----: | ----------------------------------- | ---------------------------------------------------- |
-| `topic_id`    | BIGINT       | **PK** | AUTO_INCREMENT                      | Khóa chính của chủ đề                                |
-| `teacher_id`  | BIGINT       | **FK** | NOT NULL, REFERENCES USERS(user_id) | Giảng viên phụ trách/tạo chủ đề                      |
-| `title`       | VARCHAR(255) |        | NOT NULL                            | Tiêu đề của chủ đề                                   |
-| `description` | TEXT         |        | NULL                                | Mô tả chi tiết mục tiêu khóa học                     |
-| `level`       | VARCHAR(50)  |        | NOT NULL                            | Cấp độ: `'BEGINNER'`, `'INTERMEDIATE'`, `'ADVANCED'` |
-| `created_at`  | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Ngày tạo chủ đề                                      |
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `student_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `user_id` | BIGINT | **FK** | NOT NULL UNIQUE | Liên kết với `users` |
+| `student_code` | VARCHAR(50) | **UQ** | NULL | Mã học viên |
+| `date_of_birth` | DATE |  | NULL | Ngày sinh |
+| `gender` | ENUM('MALE','FEMALE','OTHER') |  | NULL | Giới tính |
+| `phone` | VARCHAR(20) |  | NULL | Số điện thoại |
+| `address` | VARCHAR(255) |  | NULL | Địa chỉ |
+| `bio` | TEXT |  | NULL | Giới thiệu bản thân |
+| `current_level` | ENUM('BEGINNER','INTERMEDIATE','ADVANCED') |  | DEFAULT 'BEGINNER' | Mức độ hiện tại |
+| `total_points` | DECIMAL(10,2) |  | DEFAULT 0.00 | Tổng điểm tích lũy |
+| `completed_topics` | JSON |  | NULL | Danh sách topic đã hoàn thành |
+| `certificates` | JSON |  | NULL | Chứng chỉ, bằng cấp, chứng nhận |
+| `learning_goals` | JSON |  | NULL | Mục tiêu học tập |
+| `last_login_at` | DATETIME |  | NULL | Đăng nhập gần nhất |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
 
-#### 3. Bảng `LESSONS` (Bài học trong chủ đề)
+#### 3. Bảng `TEACHERS` (Hồ sơ giáo viên)
 
-| Tên trường             | Kiểu dữ liệu |  Khóa  | Ràng buộc                             | Mô tả & Ý nghĩa nghiệp vụ                      |
-| ---------------------- | ------------ | :----: | ------------------------------------- | ---------------------------------------------- |
-| `lesson_id`            | BIGINT       | **PK** | AUTO_INCREMENT                        | Khóa chính bài học                             |
-| `topic_id`             | BIGINT       | **FK** | NOT NULL, REFERENCES TOPICS(topic_id) | Chủ đề chứa bài học này                        |
-| `title`                | VARCHAR(255) |        | NOT NULL                              | Tiêu đề bài học                                |
-| `order_index`          | INT          |        | NOT NULL, DEFAULT 1                   | Thứ tự sắp xếp hiển thị trong chủ đề           |
-| `completion_threshold` | DECIMAL(5,2) |        | NOT NULL, DEFAULT 80.00               | Ngưỡng điểm % tối thiểu để tính hoàn thành bài |
-| `created_at`           | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP   | Thời điểm tạo bài học                          |
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `teacher_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `user_id` | BIGINT | **FK** | NOT NULL UNIQUE | Liên kết với `users` |
+| `teacher_code` | VARCHAR(50) | **UQ** | NULL | Mã giáo viên |
+| `phone` | VARCHAR(20) |  | NULL | Số điện thoại |
+| `gender` | ENUM('MALE','FEMALE','OTHER') |  | NULL | Giới tính |
+| `date_of_birth` | DATE |  | NULL | Ngày sinh |
+| `degree` | VARCHAR(100) |  | NULL | Bằng cấp |
+| `academic_title` | VARCHAR(100) |  | NULL | Học vị |
+| `highest_education` | VARCHAR(255) |  | NULL | Trình độ học vấn cao nhất |
+| `graduate_school` | VARCHAR(255) |  | NULL | Trường đại học tốt nghiệp |
+| `specialization` | VARCHAR(255) |  | NULL | Chuyên môn |
+| `teaching_experience_years` | INT |  | DEFAULT 0 | Số năm giảng dạy |
+| `bio` | TEXT |  | NULL | Tiểu sử |
+| `research_areas` | JSON |  | NULL | Lĩnh vực nghiên cứu |
+| `academic_history` | JSON |  | NULL | Lịch sử học thuật |
+| `awards` | JSON |  | NULL | Giải thưởng, danh hiệu |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
 
-#### 4. Bảng `LESSON_MATERIALS` (Học liệu đa phương tiện)
+#### 4. Bảng `TOPICS` (Chủ đề học tập)
 
-| Tên trường    | Kiểu dữ liệu |  Khóa  | Ràng buộc                               | Mô tả & Ý nghĩa nghiệp vụ                             |
-| ------------- | ------------ | :----: | --------------------------------------- | ----------------------------------------------------- |
-| `material_id` | BIGINT       | **PK** | AUTO_INCREMENT                          | Khóa chính tài liệu                                   |
-| `lesson_id`   | BIGINT       | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id) | Bài học gắn liền tài liệu                             |
-| `type`        | VARCHAR(20)  |        | NOT NULL                                | Định dạng file: `'VIDEO'`, `'PDF'`, `'WORD'`          |
-| `file_url`    | VARCHAR(500) |        | NOT NULL                                | Đường dẫn lưu trữ an toàn (Signed URL/Pre-signed URL) |
-| `created_at`  | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP     | Thời điểm tải tài liệu lên                            |
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `topic_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `teacher_id` | BIGINT | **FK** | NOT NULL | Giáo viên tạo chủ đề |
+| `title` | VARCHAR(255) |  | NOT NULL | Tiêu đề |
+| `description` | TEXT |  | NULL | Mô tả |
+| `level` | ENUM('BEGINNER','INTERMEDIATE','ADVANCED') |  | NOT NULL | Cấp độ |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
 
-#### 5. Bảng `VOCABULARY_ITEMS` (Từ vựng bóc tách từ CSV)
+#### 5. Bảng `TOPICS_ENROLLMENT` (Theo dõi học sinh tham gia topic)
 
-| Tên trường      | Kiểu dữ liệu |  Khóa  | Ràng buộc                               | Mô tả & Ý nghĩa nghiệp vụ    |
-| --------------- | ------------ | :----: | --------------------------------------- | ---------------------------- |
-| `vocab_id`      | BIGINT       | **PK** | AUTO_INCREMENT                          | Khóa chính mục từ vựng       |
-| `lesson_id`     | BIGINT       | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id) | Bài học chứa từ vựng này     |
-| `word`          | VARCHAR(255) |        | NOT NULL                                | Từ vựng tiếng Anh gốc        |
-| `meaning`       | VARCHAR(500) |        | NOT NULL                                | Nghĩa tiếng Việt của từ      |
-| `pronunciation` | VARCHAR(255) |        | NULL                                    | Ký hiệu phiên âm quốc tế IPA |
-| `example`       | TEXT         |        | NULL                                    | Câu ví dụ minh họa ngữ cảnh  |
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `enrollment_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `student_id` | BIGINT | **FK** | NOT NULL | Học sinh |
+| `topic_id` | BIGINT | **FK** | NOT NULL | Chủ đề |
+| `status` | ENUM('ENROLLED','IN_PROGRESS','COMPLETED','DROPPED') |  | DEFAULT 'ENROLLED' | Trạng thái tham gia |
+| `progress_percent` | DECIMAL(5,2) |  | DEFAULT 0.00 | % tiến độ topic |
+| `enrolled_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tham gia |
+| `last_activity_at` | DATETIME |  | NULL | Hoạt động gần nhất |
+| `completed_at` | DATETIME |  | NULL | Thời điểm hoàn thành topic |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
 
-#### 6. Bảng `MINIGAMES` (Trò chơi ôn tập bài học)
+#### 6. Bảng `LESSONS` (Bài học)
 
-| Tên trường    | Kiểu dữ liệu |  Khóa  | Ràng buộc                               | Mô tả & Ý nghĩa nghiệp vụ                                    |
-| ------------- | ------------ | :----: | --------------------------------------- | ------------------------------------------------------------ |
-| `minigame_id` | BIGINT       | **PK** | AUTO_INCREMENT                          | Khóa chính minigame (Ref sang MongoDB questions)             |
-| `lesson_id`   | BIGINT       | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id) | Gắn với bài học tương ứng                                    |
-| `title`       | VARCHAR(255) |        | NOT NULL                                | Tiêu đề minigame                                             |
-| `status`      | VARCHAR(20)  |        | NOT NULL, DEFAULT 'DRAFT'               | Trạng thái: `'DRAFT'` (xem trước), `'PUBLISHED'` (công khai) |
-| `created_at`  | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP     | Thời điểm khởi tạo minigame                                  |
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `lesson_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `topic_id` | BIGINT | **FK** | NOT NULL | Chủ đề chứa bài học |
+| `title` | VARCHAR(255) |  | NOT NULL | Tiêu đề |
+| `order_index` | INT |  | NOT NULL DEFAULT 1 | Thứ tự sắp xếp |
+| `completion_threshold` | DECIMAL(5,2) |  | NOT NULL DEFAULT 80.00 | Ngưỡng hoàn thành bài |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
 
-#### 7. Bảng `MINIGAME_ATTEMPTS` (Lịch sử làm bài tập)
+#### 7. Bảng `LESSON_MATERIALS` (Học liệu)
 
-| Tên trường     | Kiểu dữ liệu |  Khóa  | Ràng buộc                                   | Mô tả & Ý nghĩa nghiệp vụ                      |
-| -------------- | ------------ | :----: | ------------------------------------------- | ---------------------------------------------- |
-| `attempt_id`   | BIGINT       | **PK** | AUTO_INCREMENT                              | Khóa chính lượt làm bài                        |
-| `minigame_id`  | BIGINT       | **FK** | NOT NULL, REFERENCES MINIGAMES(minigame_id) | Minigame đã làm                                |
-| `student_id`   | BIGINT       | **FK** | NOT NULL, REFERENCES USERS(user_id)         | Học sinh thực hiện nộp bài                     |
-| `score`        | DECIMAL(5,2) |        | NOT NULL                                    | Điểm số đạt được (thang điểm 100)              |
-| `is_passed`    | BOOLEAN      |        | NOT NULL, DEFAULT FALSE                     | Cờ đánh dấu đạt điểm `>= completion_threshold` |
-| `attempted_at` | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP         | Thời điểm hoàn thành và nộp bài                |
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `material_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `lesson_id` | BIGINT | **FK** | NOT NULL | Bài học |
+| `type` | ENUM('VIDEO','PDF','WORD') |  | NOT NULL | Loại file |
+| `file_url` | VARCHAR(500) |  | NOT NULL | Đường dẫn lưu trữ |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm upload |
 
-#### 8. Bảng `LESSON_PROGRESS` (Tiến độ học tập theo bài học)
+#### 8. Bảng `VOCABULARY_ITEMS` (Từ vựng)
 
-| Tên trường    | Kiểu dữ liệu |  Khóa  | Ràng buộc                                                       | Mô tả & Ý nghĩa nghiệp vụ                  |
-| ------------- | ------------ | :----: | --------------------------------------------------------------- | ------------------------------------------ |
-| `progress_id` | BIGINT       | **PK** | AUTO_INCREMENT                                                  | Khóa chính bản ghi tiến độ                 |
-| `student_id`  | BIGINT       | **FK** | NOT NULL, REFERENCES USERS(user_id)                             | Học sinh                                   |
-| `lesson_id`   | BIGINT       | **FK** | NOT NULL, REFERENCES LESSONS(lesson_id)                         | Bài học                                    |
-| `status`      | VARCHAR(20)  |        | NOT NULL, DEFAULT 'IN_PROGRESS'                                 | Trạng thái: `'IN_PROGRESS'`, `'COMPLETED'` |
-| `updated_at`  | DATETIME     |        | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật trạng thái gần nhất     |
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `vocab_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `lesson_id` | BIGINT | **FK** | NOT NULL | Bài học |
+| `word` | VARCHAR(255) |  | NOT NULL | Từ vựng |
+| `meaning` | VARCHAR(500) |  | NOT NULL | Nghĩa tiếng Việt |
+| `pronunciation` | VARCHAR(255) |  | NULL | Phiên âm |
+| `example` | TEXT |  | NULL | Ví dụ |
 
-> **Ràng buộc duy nhất:** `UNIQUE(student_id, lesson_id)` đảm bảo mỗi học sinh chỉ có 1 bản ghi tiến độ duy nhất cho mỗi bài học.
+#### 9. Bảng `MINIGAMES` (Minigame)
+
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `minigame_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `lesson_id` | BIGINT | **FK** | NOT NULL | Bài học liên quan |
+| `title` | VARCHAR(255) |  | NOT NULL | Tiêu đề minigame |
+| `status` | ENUM('DRAFT','PUBLISHED') |  | DEFAULT 'DRAFT' | Trạng thái |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+
+#### 10. Bảng `MINIGAME_QUESTIONS` (Câu hỏi trắc nghiệm 4 đáp án)
+
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `question_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `minigame_id` | BIGINT | **FK** | NOT NULL | Minigame chứa câu hỏi |
+| `vocab_id` | BIGINT | **FK** | NULL | Từ vựng gốc nếu có |
+| `question_text` | TEXT |  | NOT NULL | Nội dung câu hỏi |
+| `option_a` | VARCHAR(500) |  | NOT NULL | Đáp án A |
+| `option_b` | VARCHAR(500) |  | NOT NULL | Đáp án B |
+| `option_c` | VARCHAR(500) |  | NOT NULL | Đáp án C |
+| `option_d` | VARCHAR(500) |  | NOT NULL | Đáp án D |
+| `correct_option` | ENUM('A','B','C','D') |  | NOT NULL | Đáp án đúng |
+| `explanation` | TEXT |  | NULL | Giải thích đáp án |
+| `difficulty` | ENUM('EASY','MEDIUM','HARD') |  | DEFAULT 'MEDIUM' | Độ khó |
+| `question_order` | INT |  | NOT NULL DEFAULT 1 | Thứ tự câu hỏi |
+| `is_active` | BOOLEAN |  | NOT NULL DEFAULT TRUE | Câu hỏi còn kích hoạt |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
+
+#### 11. Bảng `MINIGAME_ATTEMPTS` (Lịch sử làm bài)
+
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `attempt_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `minigame_id` | BIGINT | **FK** | NOT NULL | Minigame đã làm |
+| `student_id` | BIGINT | **FK** | NOT NULL | Học sinh nộp bài |
+| `score` | DECIMAL(5,2) |  | NOT NULL | Điểm số |
+| `is_passed` | BOOLEAN |  | NOT NULL DEFAULT FALSE | Đã đạt ngưỡng |
+| `attempted_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm nộp bài |
+
+#### 12. Bảng `LESSON_PROGRESS` (Tiến độ bài học)
+
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `progress_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `student_id` | BIGINT | **FK** | NOT NULL | Học sinh |
+| `lesson_id` | BIGINT | **FK** | NOT NULL | Bài học |
+| `status` | ENUM('NOT_STARTED','IN_PROGRESS','COMPLETED','REVIEWING') |  | DEFAULT 'NOT_STARTED' | Trạng thái tiến độ |
+| `completion_percent` | DECIMAL(5,2) |  | DEFAULT 0.00 | % hoàn thành bài |
+| `viewed_materials_count` | INT |  | DEFAULT 0 | Số tài liệu đã xem |
+| `minigame_attempt_count` | INT |  | DEFAULT 0 | Số lần làm minigame |
+| `minigame_score` | DECIMAL(5,2) |  | DEFAULT 0.00 | Điểm minigame hiện tại |
+| `last_score` | DECIMAL(5,2) |  | NULL | Điểm mới nhất |
+| `time_spent_minutes` | INT |  | DEFAULT 0 | Thời gian học |
+| `started_at` | DATETIME |  | NULL | Thời điểm bắt đầu |
+| `completed_at` | DATETIME |  | NULL | Thời điểm hoàn thành |
+| `last_activity_at` | DATETIME |  | NULL | Hoạt động gần nhất |
+| `notes` | TEXT |  | NULL | Ghi chú |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
+
+> **Ràng buộc duy nhất:** `UNIQUE(student_id, lesson_id)` đảm bảo mỗi học sinh chỉ có 1 bản ghi tiến độ cho mỗi bài học.
+
+#### 13. Bảng `COMMENTS` (Bình luận Topic/Lesson)
+
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `comment_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `target_type` | ENUM('TOPIC','LESSON') |  | NOT NULL | Bình luận thuộc Topic hay Lesson |
+| `target_id` | BIGINT |  | NOT NULL | ID của topic hoặc lesson |
+| `parent_comment_id` | BIGINT | **FK** | NULL | Bình luận cha, nếu là reply |
+| `author_user_id` | BIGINT | **FK** | NOT NULL | Người gửi |
+| `author_role` | ENUM('STUDENT','TEACHER','ADMIN') |  | NOT NULL | Vai trò người gửi |
+| `content` | TEXT |  | NOT NULL | Nội dung bình luận |
+| `status` | ENUM('ACTIVE','HIDDEN','DELETED') |  | DEFAULT 'ACTIVE' | Trạng thái bình luận |
+| `like_count` | INT |  | DEFAULT 0 | Số lượt thích |
+| `reply_count` | INT |  | DEFAULT 0 | Số lượng reply |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+| `updated_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật |
+
+#### 14. Bảng `USER_TOKENS` (Token hệ thống)
+
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `token_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `user_id` | BIGINT | **FK** | NOT NULL | Người sở hữu token |
+| `token_type` | ENUM('ACCESS','REFRESH','RESET_PASSWORD','EMAIL_VERIFICATION') |  | NOT NULL | Loại token |
+| `token_hash` | VARCHAR(255) |  | NOT NULL | Hash token |
+| `jti` | VARCHAR(64) | **UQ** | NOT NULL | JWT ID |
+| `expires_at` | DATETIME |  | NOT NULL | Hạn token |
+| `issued_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm phát hành |
+| `revoked_at` | DATETIME |  | NULL | Thời điểm thu hồi |
+| `used_at` | DATETIME |  | NULL | Thời điểm dùng |
+| `device_info` | VARCHAR(255) |  | NULL | Thông tin thiết bị |
+| `ip_address` | VARCHAR(45) |  | NULL | IP |
+| `user_agent` | VARCHAR(512) |  | NULL | User Agent |
+| `is_revoked` | BOOLEAN |  | DEFAULT FALSE | Có bị thu hồi hay không |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo |
+
+#### 15. Bảng `AUDIT_LOGS` (Nhật ký kiểm toán)
+
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `audit_log_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `actor_user_id` | BIGINT | **FK** | NULL | Người thực hiện |
+| `actor_role` | ENUM('STUDENT','TEACHER','ADMIN') |  | NULL | Vai trò người thao tác |
+| `action_type` | VARCHAR(100) |  | NOT NULL | Loại hành động |
+| `entity_type` | VARCHAR(100) |  | NOT NULL | Đối tượng bị tác động |
+| `entity_id` | BIGINT |  | NULL | ID đối tượng |
+| `old_value` | JSON |  | NULL | Giá trị cũ |
+| `new_value` | JSON |  | NULL | Giá trị mới |
+| `ip_address` | VARCHAR(45) |  | NULL | IP truy cập |
+| `user_agent` | VARCHAR(512) |  | NULL | User Agent |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm ghi log |
+
+#### 16. Bảng `ACTIVITY_LOGS` (Nhật ký hoạt động)
+
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `activity_log_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `user_id` | BIGINT | **FK** | NULL | User thao tác |
+| `student_id` | BIGINT | **FK** | NULL | Học sinh nếu là hoạt động học viên |
+| `teacher_id` | BIGINT | **FK** | NULL | Giáo viên nếu là hoạt động giảng viên |
+| `topic_id` | BIGINT | **FK** | NULL | Topic liên quan |
+| `lesson_id` | BIGINT | **FK** | NULL | Lesson liên quan |
+| `action_type` | VARCHAR(100) |  | NOT NULL | Loại hành động |
+| `entity_type` | VARCHAR(100) |  | NOT NULL | Loại thực thể |
+| `entity_id` | BIGINT |  | NULL | ID đối tượng |
+| `metadata` | JSON |  | NULL | Dữ liệu bổ sung |
+| `ip_address` | VARCHAR(45) |  | NULL | IP truy cập |
+| `user_agent` | VARCHAR(512) |  | NULL | User Agent |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm ghi log |
+
+#### 17. Bảng `SYSTEM_ERROR_LOGS` (Nhật ký lỗi hệ thống)
+
+| Tên trường | Kiểu dữ liệu | Khóa | Ràng buộc | Mô tả |
+| ---------- | ------------ | :--: | -------- | ----- |
+| `error_log_id` | BIGINT | **PK** | AUTO_INCREMENT | Khóa chính |
+| `severity` | ENUM('INFO','WARNING','ERROR','CRITICAL') |  | DEFAULT 'ERROR' | Mức độ nghiêm trọng |
+| `error_code` | VARCHAR(100) |  | NULL | Mã lỗi |
+| `error_message` | TEXT |  | NOT NULL | Thông điệp lỗi |
+| `stack_trace` | TEXT |  | NULL | Stack trace |
+| `request_path` | VARCHAR(500) |  | NULL | URL gây lỗi |
+| `http_method` | VARCHAR(20) |  | NULL | Phương thức HTTP |
+| `status_code` | INT |  | NULL | Mã HTTP trả về |
+| `user_id` | BIGINT | **FK** | NULL | User liên quan |
+| `ip_address` | VARCHAR(45) |  | NULL | IP truy cập |
+| `user_agent` | VARCHAR(512) |  | NULL | User Agent |
+| `created_at` | DATETIME |  | DEFAULT CURRENT_TIMESTAMP | Thời điểm ghi lỗi |
 
 ---
 
-### 3.2. Mã SQL DDL Khởi tạo CSDL (MySQL / PostgreSQL Compatible)
+### 3.2. Mã SQL DDL Khởi tạo CSDL MySQL thuần
 
 ```sql
--- 1. Bảng USERS
 CREATE TABLE users (
     user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    avatar_url VARCHAR(500) NULL,
     role ENUM('STUDENT', 'TEACHER', 'ADMIN') NOT NULL DEFAULT 'STUDENT',
-    status ENUM('ACTIVE', 'LOCKED') NOT NULL DEFAULT 'ACTIVE',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    status ENUM('ACTIVE', 'LOCKED', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 2. Bảng TOPICS
+CREATE TABLE students (
+    student_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE,
+    student_code VARCHAR(50) NULL UNIQUE,
+    date_of_birth DATE NULL,
+    gender ENUM('MALE', 'FEMALE', 'OTHER') NULL,
+    phone VARCHAR(20) NULL,
+    address VARCHAR(255) NULL,
+    bio TEXT NULL,
+    current_level ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED') NOT NULL DEFAULT 'BEGINNER',
+    total_points DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    completed_topics JSON NULL,
+    certificates JSON NULL,
+    learning_goals JSON NULL,
+    last_login_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_students_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE teachers (
+    teacher_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE,
+    teacher_code VARCHAR(50) NULL UNIQUE,
+    phone VARCHAR(20) NULL,
+    gender ENUM('MALE', 'FEMALE', 'OTHER') NULL,
+    date_of_birth DATE NULL,
+    degree VARCHAR(100) NULL,
+    academic_title VARCHAR(100) NULL,
+    highest_education VARCHAR(255) NULL,
+    graduate_school VARCHAR(255) NULL,
+    specialization VARCHAR(255) NULL,
+    teaching_experience_years INT NOT NULL DEFAULT 0,
+    bio TEXT NULL,
+    research_areas JSON NULL,
+    academic_history JSON NULL,
+    awards JSON NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_teachers_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
 CREATE TABLE topics (
     topic_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     teacher_id BIGINT NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT NULL,
-    level VARCHAR(50) NOT NULL,
+    level ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED') NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_topics_teacher FOREIGN KEY (teacher_id) REFERENCES users(user_id) ON DELETE RESTRICT
 );
 
--- 3. Bảng LESSONS
+CREATE TABLE topics_enrollment (
+    enrollment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    student_id BIGINT NOT NULL,
+    topic_id BIGINT NOT NULL,
+    status ENUM('ENROLLED', 'IN_PROGRESS', 'COMPLETED', 'DROPPED') NOT NULL DEFAULT 'ENROLLED',
+    progress_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    enrolled_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_activity_at DATETIME NULL,
+    completed_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_student_topic UNIQUE (student_id, topic_id),
+    CONSTRAINT fk_enrollment_student FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+    CONSTRAINT fk_enrollment_topic FOREIGN KEY (topic_id) REFERENCES topics(topic_id) ON DELETE CASCADE
+);
+
 CREATE TABLE lessons (
     lesson_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     topic_id BIGINT NOT NULL,
@@ -325,7 +669,6 @@ CREATE TABLE lessons (
     CONSTRAINT fk_lessons_topic FOREIGN KEY (topic_id) REFERENCES topics(topic_id) ON DELETE CASCADE
 );
 
--- 4. Bảng LESSON_MATERIALS
 CREATE TABLE lesson_materials (
     material_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     lesson_id BIGINT NOT NULL,
@@ -335,7 +678,6 @@ CREATE TABLE lesson_materials (
     CONSTRAINT fk_materials_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE CASCADE
 );
 
--- 5. Bảng VOCABULARY_ITEMS
 CREATE TABLE vocabulary_items (
     vocab_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     lesson_id BIGINT NOT NULL,
@@ -346,7 +688,6 @@ CREATE TABLE vocabulary_items (
     CONSTRAINT fk_vocab_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE CASCADE
 );
 
--- 6. Bảng MINIGAMES
 CREATE TABLE minigames (
     minigame_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     lesson_id BIGINT NOT NULL,
@@ -356,7 +697,26 @@ CREATE TABLE minigames (
     CONSTRAINT fk_minigames_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE CASCADE
 );
 
--- 7. Bảng MINIGAME_ATTEMPTS
+CREATE TABLE minigame_questions (
+    question_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    minigame_id BIGINT NOT NULL,
+    vocab_id BIGINT NULL,
+    question_text TEXT NOT NULL,
+    option_a VARCHAR(500) NOT NULL,
+    option_b VARCHAR(500) NOT NULL,
+    option_c VARCHAR(500) NOT NULL,
+    option_d VARCHAR(500) NOT NULL,
+    correct_option ENUM('A', 'B', 'C', 'D') NOT NULL,
+    explanation TEXT NULL,
+    difficulty ENUM('EASY', 'MEDIUM', 'HARD') NOT NULL DEFAULT 'MEDIUM',
+    question_order INT NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_questions_minigame FOREIGN KEY (minigame_id) REFERENCES minigames(minigame_id) ON DELETE CASCADE,
+    CONSTRAINT fk_questions_vocab FOREIGN KEY (vocab_id) REFERENCES vocabulary_items(vocab_id) ON DELETE SET NULL
+);
+
 CREATE TABLE minigame_attempts (
     attempt_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     minigame_id BIGINT NOT NULL,
@@ -365,253 +725,183 @@ CREATE TABLE minigame_attempts (
     is_passed BOOLEAN NOT NULL DEFAULT FALSE,
     attempted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_attempts_minigame FOREIGN KEY (minigame_id) REFERENCES minigames(minigame_id) ON DELETE CASCADE,
-    CONSTRAINT fk_attempts_student FOREIGN KEY (student_id) REFERENCES users(user_id) ON DELETE CASCADE
+    CONSTRAINT fk_attempts_student FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE
 );
 
--- 8. Bảng LESSON_PROGRESS
 CREATE TABLE lesson_progress (
     progress_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     student_id BIGINT NOT NULL,
     lesson_id BIGINT NOT NULL,
-    status ENUM('IN_PROGRESS', 'COMPLETED') NOT NULL DEFAULT 'IN_PROGRESS',
+    status ENUM('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'REVIEWING') NOT NULL DEFAULT 'NOT_STARTED',
+    completion_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    viewed_materials_count INT NOT NULL DEFAULT 0,
+    minigame_attempt_count INT NOT NULL DEFAULT 0,
+    minigame_score DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    last_score DECIMAL(5,2) NULL,
+    time_spent_minutes INT NOT NULL DEFAULT 0,
+    started_at DATETIME NULL,
+    completed_at DATETIME NULL,
+    last_activity_at DATETIME NULL,
+    notes TEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT uq_student_lesson UNIQUE (student_id, lesson_id),
-    CONSTRAINT fk_progress_student FOREIGN KEY (student_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_progress_student FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
     CONSTRAINT fk_progress_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE CASCADE
 );
 
--- Tạo Indexes tối ưu hóa hiệu năng truy vấn
+CREATE TABLE comments (
+    comment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    target_type ENUM('TOPIC', 'LESSON') NOT NULL,
+    target_id BIGINT NOT NULL,
+    parent_comment_id BIGINT NULL,
+    author_user_id BIGINT NOT NULL,
+    author_role ENUM('STUDENT', 'TEACHER', 'ADMIN') NOT NULL,
+    content TEXT NOT NULL,
+    status ENUM('ACTIVE', 'HIDDEN', 'DELETED') NOT NULL DEFAULT 'ACTIVE',
+    like_count INT NOT NULL DEFAULT 0,
+    reply_count INT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_comments_parent FOREIGN KEY (parent_comment_id) REFERENCES comments(comment_id) ON DELETE CASCADE,
+    CONSTRAINT fk_comments_author FOREIGN KEY (author_user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE user_tokens (
+    token_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    token_type ENUM('ACCESS', 'REFRESH', 'RESET_PASSWORD', 'EMAIL_VERIFICATION') NOT NULL,
+    token_hash VARCHAR(255) NOT NULL,
+    jti VARCHAR(64) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at DATETIME NULL,
+    used_at DATETIME NULL,
+    device_info VARCHAR(255) NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent VARCHAR(512) NULL,
+    is_revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_tokens_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE audit_logs (
+    audit_log_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    actor_user_id BIGINT NULL,
+    actor_role ENUM('STUDENT', 'TEACHER', 'ADMIN') NULL,
+    action_type VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(100) NOT NULL,
+    entity_id BIGINT NULL,
+    old_value JSON NULL,
+    new_value JSON NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent VARCHAR(512) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_audit_logs_actor FOREIGN KEY (actor_user_id) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
+CREATE TABLE activity_logs (
+    activity_log_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NULL,
+    student_id BIGINT NULL,
+    teacher_id BIGINT NULL,
+    topic_id BIGINT NULL,
+    lesson_id BIGINT NULL,
+    action_type VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(100) NOT NULL,
+    entity_id BIGINT NULL,
+    metadata JSON NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent VARCHAR(512) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_activity_logs_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL,
+    CONSTRAINT fk_activity_logs_student FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE SET NULL,
+    CONSTRAINT fk_activity_logs_teacher FOREIGN KEY (teacher_id) REFERENCES teachers(teacher_id) ON DELETE SET NULL,
+    CONSTRAINT fk_activity_logs_topic FOREIGN KEY (topic_id) REFERENCES topics(topic_id) ON DELETE SET NULL,
+    CONSTRAINT fk_activity_logs_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE SET NULL
+);
+
+CREATE TABLE system_error_logs (
+    error_log_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    severity ENUM('INFO', 'WARNING', 'ERROR', 'CRITICAL') NOT NULL DEFAULT 'ERROR',
+    error_code VARCHAR(100) NULL,
+    error_message TEXT NOT NULL,
+    stack_trace TEXT NULL,
+    request_path VARCHAR(500) NULL,
+    http_method VARCHAR(20) NULL,
+    status_code INT NULL,
+    user_id BIGINT NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent VARCHAR(512) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_system_error_logs_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
 CREATE INDEX idx_topics_teacher ON topics(teacher_id);
 CREATE INDEX idx_lessons_topic ON lessons(topic_id, order_index);
 CREATE INDEX idx_materials_lesson ON lesson_materials(lesson_id);
 CREATE INDEX idx_vocab_lesson ON vocabulary_items(lesson_id);
+CREATE INDEX idx_questions_minigame_order ON minigame_questions(minigame_id, question_order);
 CREATE INDEX idx_attempts_student_game ON minigame_attempts(student_id, minigame_id, attempted_at DESC);
 CREATE INDEX idx_progress_student_status ON lesson_progress(student_id, status);
+CREATE INDEX idx_enrollment_student_topic ON topics_enrollment(student_id, topic_id);
+CREATE INDEX idx_comments_target ON comments(target_type, target_id, created_at DESC);
+CREATE INDEX idx_comments_parent ON comments(parent_comment_id, created_at DESC);
+CREATE INDEX idx_user_tokens_user_type ON user_tokens(user_id, token_type, expires_at);
+CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id, created_at DESC);
+CREATE INDEX idx_activity_logs_user_time ON activity_logs(user_id, created_at DESC);
+CREATE INDEX idx_error_logs_time ON system_error_logs(created_at DESC);
 ```
 
 ---
 
-## 4. THIẾT KẾ CSDL NOSQL (MONGODB COLLECTIONS)
+## 4. THIẾT KẾ SQL CHO CÁC NHIỆM VỤ LOG, COMMENT VÀ MINIGAME
 
-### 4.1. Nhóm Collections Nghiệp vụ (Core Business)
+### 4.1. `minigame_questions`
 
-#### 1. Collection: `minigame_questions`
+- Lưu trữ câu hỏi dạng trắc nghiệm 4 lựa chọn (`A/B/C/D`).
+- Mỗi câu hỏi thuộc về 1 `minigame_id`.
+- Trường `correct_option` bắt buộc phải có một trong `A/B/C/D`.
+- Có thể gắn với `vocab_id` nếu câu hỏi sinh từ từ vựng có sẵn.
 
-- **Mục đích:** Lưu trữ danh sách câu hỏi với định dạng dữ liệu đa hình (trắc nghiệm, ghép nối, điền từ) sinh ra từ bộ từ vựng CSV.
-- **Quan hệ:** Tham chiếu tới SQL qua trường `minigame_id`.
+### 4.2. `comments`
 
-```json
-{
-  "_id": ObjectId("665b123456789abcdef01234"),
-  "minigame_id": 101,
-  "vocab_id": 502,
-  "question_type": "MULTIPLE_CHOICE",
-  "order_index": 1,
-  "payload": {
-    "question_text": "Nghĩa của từ 'Resilient' là gì?",
-    "audio_url": "https://cdn.example.com/audio/resilient.mp3",
-    "options": [
-      { "key": "A", "text": "Kiên cường, bền bỉ", "is_correct": true },
-      { "key": "B", "text": "Yếu ớt, dễ vỡ", "is_correct": false },
-      { "key": "C", "text": "Hài hước, vui vẻ", "is_correct": false },
-      { "key": "D", "text": "Nghiêm khắc", "is_correct": false }
-    ],
-    "explanation": "'Resilient' là tính từ chỉ khả năng phục hồi nhanh chóng sau khó khăn."
-  },
-  "created_at": ISODate("2026-08-20T10:00:00Z")
-}
-```
+- Lưu trữ bình luận cấp `TOPIC` hoặc `LESSON`.
+- Hỗ trợ reply lồng nhau bằng `parent_comment_id`.
+- Dữ liệu được query theo `target_type + target_id + created_at DESC`.
 
-_Index:_
+### 4.3. `audit_logs`
 
-```javascript
-db.minigame_questions.createIndex({ minigame_id: 1, order_index: 1 });
-```
+- Lưu lại các thao tác quản trị nhạy cảm: cấp quyền, khóa user, xóa nội dung, cập nhật cấu hình hệ thống.
+- Dữ liệu dạng `JSON` cho `old_value` và `new_value` giúp dễ so sánh thay đổi.
 
----
+### 4.4. `activity_logs`
 
-#### 2. Collection: `comments`
+- Theo dõi hoạt động học tập của học sinh và thao tác của giáo viên/admin.
+- `metadata` dùng `JSON` để lưu thêm dữ liệu động như thời lượng xem, số câu sai, tracking event.
 
-- **Mục đích:** Lưu trữ bình luận phân cấp (Threaded / Embedded Replies) cho cả cấp Topic và Lesson, tối ưu đọc trong 1 truy vấn.
+### 4.5. `system_error_logs`
 
-```json
-{
-  "_id": ObjectId("665b987654321fedcba98765"),
-  "target": {
-    "type": "LESSON",
-    "id": 15
-  },
-  "author": {
-    "user_id": 1002,
-    "full_name": "Nguyễn Văn A",
-    "avatar_url": "https://cdn.example.com/avatars/user_1002.png",
-    "role": "STUDENT"
-  },
-  "content": "Thầy ơi cho em hỏi câu ví dụ của từ 'Resilient' ở phút 03:15 phát âm như thế nào ạ?",
-  "reply_count": 1,
-  "replies": [
-    {
-      "reply_id": ObjectId("665b987654321fedcba98766"),
-      "author": {
-        "user_id": 501,
-        "full_name": "Teacher John",
-        "avatar_url": "https://cdn.example.com/avatars/teacher_john.png",
-        "role": "TEACHER"
-      },
-      "content": "Em nhấn trọng âm rơi vào âm tiết thứ hai nhé: /rɪˈzɪl.jənt/.",
-      "created_at": ISODate("2026-08-20T10:35:00Z")
-    }
-  ],
-  "is_pinned": false,
-  "created_at": ISODate("2026-08-20T10:30:00Z"),
-  "updated_at": ISODate("2026-08-20T10:35:00Z")
-}
-```
+- Ghi nhận exception, lỗi validation, lỗi request, lỗi API và lỗi runtime.
+- Dễ dàng lọc theo `severity`, `error_code`, `status_code`, `request_path` và `created_at`.
 
-_Indexes:_
-
-```javascript
-db.comments.createIndex({ "target.type": 1, "target.id": 1, created_at: -1 });
-db.comments.createIndex({ "author.user_id": 1 });
-```
-
----
-
-### 4.2. Nhóm Collections Nhật ký Hệ thống (Logging & Auditing)
-
-#### 3. Collection: `audit_logs` (Nhật ký Kiểm toán & Quản trị)
-
-- **Mục đích:** Đáp ứng yêu cầu **NFR-SEC-08**, ghi lại các hành động nhạy cảm hoặc thay đổi quyền hạn từ Admin/Teacher (cấp tài khoản, khóa người dùng, chỉnh sửa điểm số, xóa bài học).
-
-```json
-{
-  "_id": ObjectId("665ba1112223334445556667"),
-  "actor": {
-    "user_id": 1,
-    "email": "admin@platform.edu.vn",
-    "role": "ADMIN"
-  },
-  "action": "LOCK_USER_ACCOUNT",
-  "target_entity": "USERS",
-  "target_id": "1005",
-  "details": {
-    "reason": "Phát hiện spam bình luận quảng cáo",
-    "old_state": { "status": "ACTIVE" },
-    "new_state": { "status": "LOCKED" }
-  },
-  "client_info": {
-    "ip_address": "118.69.15.22",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
-  },
-  "created_at": ISODate("2026-08-22T08:15:30Z")
-}
-```
-
-_Indexes:_
-
-```javascript
-db.audit_logs.createIndex({ created_at: -1 });
-db.audit_logs.createIndex({ "actor.user_id": 1, created_at: -1 });
-db.audit_logs.createIndex({ action: 1, created_at: -1 });
-```
-
----
-
-#### 4. Collection: `activity_logs` (Nhật ký Hoạt động Học tập)
-
-- **Mục đích:** Ghi nhận chuỗi hành vi học tập chi tiết của học sinh (xem video, thời lượng xem, tải tài liệu, bắt đầu làm quiz) nhằm phục vụ phân tích hành vi và gợi ý bài học.
-- **Đặc điểm:** Tần suất ghi rất cao (High Write Throughput). Sử dụng tính năng **TTL Index** để tự động dọn dẹp log cũ sau 90 ngày.
-
-```json
-{
-  "_id": ObjectId("665ba2223334445556667778"),
-  "student_id": 1002,
-  "event_type": "VIDEO_PLAYBACK",
-  "context": {
-    "topic_id": 3,
-    "lesson_id": 15,
-    "material_id": 42
-  },
-  "event_data": {
-    "playback_time_seconds": 185,
-    "video_duration_seconds": 420,
-    "is_completed_view": false,
-    "device": "ANDROID_APP",
-    "app_version": "1.2.0"
-  },
-  "created_at": ISODate("2026-08-22T14:20:10Z")
-}
-```
-
-_Indexes:_
-
-```javascript
-db.activity_logs.createIndex({ student_id: 1, created_at: -1 });
-db.activity_logs.createIndex({ "context.lesson_id": 1, event_type: 1 });
-// TTL Index: Tự động xóa log sau 90 ngày (7,776,000 giây)
-db.activity_logs.createIndex(
-  { created_at: 1 },
-  { expireAfterSeconds: 7776000 },
-);
-```
-
----
-
-#### 5. Collection: `system_error_logs` (Nhật ký Lỗi Kỹ thuật & Exception)
-
-- **Mục đích:** Bắt trọn vẹn các lỗi runtime từ backend API, worker ngầm (như parse file CSV thất bại, lỗi kết nối mạng tới S3/Mail Server), phục vụ giám sát và cảnh báo sự cố kỹ thuật.
-
-```json
-{
-  "_id": ObjectId("665ba3334445556667778889"),
-  "service_name": "CSV_PARSER_WORKER",
-  "error_level": "ERROR",
-  "error_code": "ERR_CSV_INVALID_FORMAT",
-  "message": "Column 'meaning' is missing at line 24",
-  "stack_trace": "CsvParseException: Missing column 'meaning' at Line 24: Col 3\n  at CsvParserService.parse(CsvParserService.java:88)...",
-  "request_context": {
-    "request_id": "req-8f92a10c-3b71",
-    "endpoint": "/api/v1/lessons/15/vocab/csv",
-    "http_method": "POST",
-    "teacher_id": 501
-  },
-  "file_metadata": {
-    "file_name": "Unit1_Vocabulary_Draft.csv",
-    "file_size_bytes": 14200,
-    "encoding": "UTF-8"
-  },
-  "created_at": ISODate("2026-08-22T15:10:05Z")
-}
-```
-
-_Indexes:_
-
-```javascript
-db.system_error_logs.createIndex({ error_level: 1, created_at: -1 });
-db.system_error_logs.createIndex({ "request_context.request_id": 1 });
-// TTL Index: Tự động dọn dẹp log lỗi sau 30 ngày (2,592,000 giây)
-db.system_error_logs.createIndex(
-  { created_at: 1 },
-  { expireAfterSeconds: 2592000 },
-);
-```
+> Kết luận: toàn bộ dữ liệu của project hiện nay được lưu trong MySQL. Không còn collection MongoDB nào trong mô hình hiện tại.
 
 ---
 
 ## 5. MA TRẬN ÁNH XẠ KIẾN TRÚC LƯU TRỮ (STORAGE MAPPING)
 
-| Thực thể / Chức năng           |     Cơ sở dữ liệu      | Lý do lựa chọn giải pháp lưu trữ                                                                                                             |
-| ------------------------------ | :--------------------: | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Users / Auth**               | **MySQL / PostgreSQL** | Quan hệ phân quyền RBAC rõ ràng, yêu cầu kiểm tra tính duy nhất (Unique Email & Username) và ràng buộc khóa ngoại an toàn.                   |
-| **Topics & Lessons**           | **MySQL / PostgreSQL** | Dữ liệu quan hệ chặt chẽ $1 - N$, có thứ tự `order_index` cố định, tần suất đọc cao qua Index.                                               |
-| **Materials & Vocab**          | **MySQL / PostgreSQL** | Cấu trúc bảng cố định, quản lý vòng đời xoá cascade theo bài học (`ON DELETE CASCADE`).                                                      |
-| **Lesson Progress & Attempts** | **MySQL / PostgreSQL** | Cần tính chất ACID cao khi ghi nhận điểm số, tránh sai lệch tiến độ học tập và tranh chấp đồng thời (Concurrency).                           |
-| **Minigame Questions**         |      **MongoDB**       | Cấu trúc JSON đa dạng theo từng dạng câu hỏi (trắc nghiệm, ghép cặp, điền từ), dễ mở rộng thêm dạng câu hỏi mới mà không cần migration bảng. |
-| **Comments & Replies**         |      **MongoDB**       | Dữ liệu dạng cây (Nested Tree), tối ưu hóa lấy toàn bộ chuỗi thảo luận trong 1 query duy nhất, nhúng snapshot tác giả.                       |
-| **Audit Logs**                 |      **MongoDB**       | Dữ liệu kiểm toán dạng Document động (lưu `old_state`, `new_state`), cấu trúc tùy biến theo từng hành vi quản trị.                           |
-| **Activity Logs**              |      **MongoDB**       | Băng thông ghi lớn (High Throughput), hỗ trợ TTL Index tự động hết hạn và giải phóng dung lượng ổ đĩa.                                       |
-| **System Error Logs**          |      **MongoDB**       | Lưu trữ chuỗi Stack Trace dài và chi tiết context lỗi một cách linh hoạt mà không làm phình schema CSDL chính.                               |
+| Thực thể / Chức năng | Cơ sở dữ liệu | Lý do lựa chọn |
+| -------------------- | ------------ | -------------- |
+| **Users / Auth** | **MySQL** | Quan hệ phân quyền RBAC rõ ràng; kiểm tra tính duy nhất email/username; ràng buộc khóa ngoại an toàn. |
+| **Students / Teachers** | **MySQL** | Hồ sơ cá nhân và thông tin học thuật là dữ liệu có cấu trúc, dễ query, dễ phân quyền và dễ báo cáo. |
+| **Topics & Lessons** | **MySQL** | Dữ liệu quan hệ chặt chẽ với thứ tự bài học và cấu trúc cố định. |
+| **Materials & Vocab** | **MySQL** | Bảng có schema rõ ràng, phù hợp upload file, parsing CSV và quản lý cascade. |
+| **Lesson Progress / Attempts** | **MySQL** | Yêu cầu tính toàn vẹn và ACID khi cập nhật điểm, trạng thái và tiến độ. |
+| **Minigame Questions** | **MySQL** | Mỗi câu hỏi là thực thể có trường đáp án và thứ tự cụ thể, phù hợp schema bảng chuẩn. |
+| **Comments & Replies** | **MySQL** | Dùng `parent_comment_id` để biểu diễn cây phản hồi mà vẫn giữ toàn bộ ở cùng DB. |
+| **Audit Logs / Activity Logs / System Error Logs** | **MySQL** | Dữ liệu quan trọng cần query, filter, phân tích và kiểm toán theo thời gian. |
 
 ---
 
-_Tài liệu được thiết kế tối ưu cho nền tảng Backend Spring Boot / Node.js Express kết nối MySQL + MongoDB._
+_Tài liệu được thiết kế tối ưu cho nền tảng Backend Spring Boot kết nối MySQL thuần, không còn phụ thuộc MongoDB._
