@@ -1,0 +1,16 @@
+# Build output
+**/target/
+
+# MySQL data volume (do not commit database files)
+Backend/mysql-data/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
