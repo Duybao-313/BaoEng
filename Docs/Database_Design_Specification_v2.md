@@ -37,7 +37,7 @@ erDiagram
     USERS ||--o| STUDENTS : "has profile"
     USERS ||--o| TEACHERS : "has profile"
     TEACHERS ||--o{ TEACHER_CERTIFICATES : "holds"
-    USERS ||--o{ TOPICS : "creates"
+    TEACHERS ||--o{ TOPICS : "creates"
     USERS ||--o{ INVALID_TOKENS : "owns"
     USERS ||--o{ AUDIT_LOGS : "performs"
     USERS ||--o{ ACTIVITY_LOGS : "generates"
@@ -125,6 +125,7 @@ erDiagram
         varchar title
         text description
         varchar level
+        enum status
         datetime created_at
     }
 
@@ -134,6 +135,7 @@ erDiagram
         varchar title
         int order_index
         decimal completion_threshold
+        enum status
         datetime created_at
     }
 
@@ -167,6 +169,8 @@ erDiagram
         bigint minigame_id FK
         bigint vocab_id FK
         text question_text
+        enum question_type
+        json payload
         varchar option_a
         varchar option_b
         varchar option_c
@@ -292,7 +296,7 @@ erDiagram
 | `USERS`                      | `STUDENTS`                 |  **1 – 1**   | `STUDENTS.user_id` → `USERS.user_id`                       | `ON DELETE CASCADE`             | Mỗi người dùng học sinh có hồ sơ cá nhân riêng.        |
 | `USERS`                      | `TEACHERS`                 |  **1 – 1**   | `TEACHERS.user_id` → `USERS.user_id`                       | `ON DELETE CASCADE`             | Mỗi người dùng giáo viên có hồ sơ chuyên môn riêng.    |
 | `TEACHERS`                   | `TEACHER_CERTIFICATES`     |  **1 – N**   | `TEACHER_CERTIFICATES.teacher_id` → `TEACHERS.teacher_id`  | `ON DELETE CASCADE`             | Mỗi giáo viên có nhiều chứng chỉ giảng dạy.            |
-| `USERS`                      | `TOPICS`                   |  **1 – N**   | `TOPICS.teacher_id` → `USERS.user_id`                      | `ON DELETE RESTRICT`            | Một giáo viên quản lý nhiều chủ đề.                    |
+| `TEACHERS`                   | `TOPICS`                   |  **1 – N**   | `TOPICS.teacher_id` → `TEACHERS.teacher_id`                | `ON DELETE RESTRICT`            | Một giáo viên quản lý nhiều chủ đề.                    |
 | `STUDENTS`                   | `TOPICS_ENROLLMENT`        |  **1 – N**   | `TOPICS_ENROLLMENT.student_id` → `STUDENTS.student_id`     | `ON DELETE CASCADE`             | Học sinh tham gia nhiều topic.                         |
 | `TOPICS`                     | `TOPICS_ENROLLMENT`        |  **1 – N**   | `TOPICS_ENROLLMENT.topic_id` → `TOPICS.topic_id`           | `ON DELETE CASCADE`             | Topic có nhiều học sinh đăng ký.                       |
 | `TOPICS`                     | `LESSONS`                  |  **1 – N**   | `LESSONS.topic_id` → `TOPICS.topic_id`                     | `ON DELETE CASCADE`             | Một chủ đề có nhiều bài học.                           |
@@ -327,9 +331,11 @@ erDiagram
 | `password_hash` | VARCHAR(255)                       |        | NOT NULL                                              | Mật khẩu đã băm        |
 | `avatar_url`    | VARCHAR(500)                       |        | NULL                                                  | Ảnh đại diện           |
 | `role`          | ENUM('STUDENT','TEACHER','ADMIN')  |        | NOT NULL DEFAULT 'STUDENT'                            | Vai trò                |
-| `status`        | ENUM('ACTIVE','LOCKED','INACTIVE') |        | NOT NULL DEFAULT 'ACTIVE'                             | Trạng thái             |
+| `status`        | ENUM('PENDING','ACTIVE','LOCKED','INACTIVE') |        | NOT NULL DEFAULT 'PENDING'                            | Trạng thái (PENDING→ACTIVE sau khi xác thực email) |
 | `created_at`    | DATETIME                           |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo          |
 | `updated_at`    | DATETIME                           |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật     |
+
+> **Ghi chú trạng thái tài khoản:** Tài khoản mới tạo (Student đăng ký, hoặc Teacher do Admin cấp) có `status = PENDING`; sau khi người dùng xác thực email (liên kết kích hoạt) mới chuyển `ACTIVE`. `LOCKED` = bị khóa, `INACTIVE` = tự ngưng/vô hiệu.
 
 #### 2. Bảng `STUDENTS` (Hồ sơ học sinh)
 
@@ -400,6 +406,7 @@ erDiagram
 | `title`       | VARCHAR(255)                               |        | NOT NULL                  | Tiêu đề              |
 | `description` | TEXT                                       |        | NULL                      | Mô tả                |
 | `level`       | ENUM('BEGINNER','INTERMEDIATE','ADVANCED') |        | NOT NULL                  | Cấp độ               |
+| `status`      | ENUM('DRAFT','PUBLISHED')                  |        | NOT NULL DEFAULT 'DRAFT'  | Trạng thái xuất bản  |
 | `created_at`  | DATETIME                                   |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo        |
 
 #### 6. Bảng `TOPICS_ENROLLMENT` (Theo dõi học sinh tham gia topic)
@@ -419,14 +426,15 @@ erDiagram
 
 #### 7. Bảng `LESSONS` (Bài học)
 
-| Tên trường             | Kiểu dữ liệu |  Khóa  | Ràng buộc                 | Mô tả                 |
-| ---------------------- | ------------ | :----: | ------------------------- | --------------------- |
-| `lesson_id`            | BIGINT       | **PK** | AUTO_INCREMENT            | Khóa chính            |
-| `topic_id`             | BIGINT       | **FK** | NOT NULL                  | Chủ đề chứa bài học   |
-| `title`                | VARCHAR(255) |        | NOT NULL                  | Tiêu đề               |
-| `order_index`          | INT          |        | NOT NULL DEFAULT 1        | Thứ tự sắp xếp        |
-| `completion_threshold` | DECIMAL(5,2) |        | NOT NULL DEFAULT 80.00    | Ngưỡng hoàn thành bài |
-| `created_at`           | DATETIME     |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo         |
+| Tên trường             | Kiểu dữ liệu              |  Khóa  | Ràng buộc                 | Mô tả                 |
+| ---------------------- | ------------------------- | :----: | ------------------------- | --------------------- |
+| `lesson_id`            | BIGINT                    | **PK** | AUTO_INCREMENT            | Khóa chính            |
+| `topic_id`             | BIGINT                    | **FK** | NOT NULL                  | Chủ đề chứa bài học   |
+| `title`                | VARCHAR(255)              |        | NOT NULL                  | Tiêu đề               |
+| `order_index`          | INT                       |        | NOT NULL DEFAULT 1        | Thứ tự sắp xếp        |
+| `completion_threshold` | DECIMAL(5,2)              |        | NOT NULL DEFAULT 80.00    | Ngưỡng hoàn thành bài |
+| `status`               | ENUM('DRAFT','PUBLISHED') |        | NOT NULL DEFAULT 'DRAFT'  | Trạng thái xuất bản   |
+| `created_at`           | DATETIME                  |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo         |
 
 #### 8. Bảng `LESSON_MATERIALS` (Học liệu)
 
@@ -449,6 +457,8 @@ erDiagram
 | `pronunciation` | VARCHAR(255) |        | NULL           | Phiên âm         |
 | `example`       | TEXT         |        | NULL           | Ví dụ            |
 
+> **Ràng buộc duy nhất:** `UNIQUE(lesson_id, word)` — mỗi bài học không chứa 2 bản ghi từ vựng trùng `word`. Khi giáo viên upload lại CSV, các dòng trùng `word` trong cùng bài học sẽ bị **bỏ qua/ghi đè** (không tạo bản ghi trùng lặp).
+
 #### 10. Bảng `MINIGAMES` (Minigame)
 
 | Tên trường    | Kiểu dữ liệu              |  Khóa  | Ràng buộc                 | Mô tả             |
@@ -459,7 +469,7 @@ erDiagram
 | `status`      | ENUM('DRAFT','PUBLISHED') |        | DEFAULT 'DRAFT'           | Trạng thái        |
 | `created_at`  | DATETIME                  |        | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo     |
 
-#### 11. Bảng `MINIGAME_QUESTIONS` (Câu hỏi trắc nghiệm 4 đáp án)
+#### 11. Bảng `MINIGAME_QUESTIONS` (Câu hỏi minigame — trắc nghiệm & ghép từ)
 
 | Tên trường       | Kiểu dữ liệu                 |  Khóa  | Ràng buộc                                             | Mô tả                 |
 | ---------------- | ---------------------------- | :----: | ----------------------------------------------------- | --------------------- |
@@ -467,17 +477,21 @@ erDiagram
 | `minigame_id`    | BIGINT                       | **FK** | NOT NULL                                              | Minigame chứa câu hỏi |
 | `vocab_id`       | BIGINT                       | **FK** | NULL                                                  | Từ vựng gốc nếu có    |
 | `question_text`  | TEXT                         |        | NOT NULL                                              | Nội dung câu hỏi      |
-| `option_a`       | VARCHAR(500)                 |        | NOT NULL                                              | Đáp án A              |
-| `option_b`       | VARCHAR(500)                 |        | NOT NULL                                              | Đáp án B              |
-| `option_c`       | VARCHAR(500)                 |        | NOT NULL                                              | Đáp án C              |
-| `option_d`       | VARCHAR(500)                 |        | NOT NULL                                              | Đáp án D              |
-| `correct_option` | ENUM('A','B','C','D')        |        | NOT NULL                                              | Đáp án đúng           |
+| `question_type`  | ENUM('MULTIPLE_CHOICE','MATCHING') |        | NOT NULL DEFAULT 'MULTIPLE_CHOICE'                   | Loại câu hỏi (trắc nghiệm / ghép từ) |
+| `payload`        | JSON                         |        | NULL                                                  | Dữ liệu câu hỏi (cặp ghép) — dùng khi `MATCHING` |
+| `option_a`       | VARCHAR(500)                 |        | NULL                                                  | Đáp án A (chỉ dùng khi `MULTIPLE_CHOICE`) |
+| `option_b`       | VARCHAR(500)                 |        | NULL                                                  | Đáp án B (chỉ dùng khi `MULTIPLE_CHOICE`) |
+| `option_c`       | VARCHAR(500)                 |        | NULL                                                  | Đáp án C (chỉ dùng khi `MULTIPLE_CHOICE`) |
+| `option_d`       | VARCHAR(500)                 |        | NULL                                                  | Đáp án D (chỉ dùng khi `MULTIPLE_CHOICE`) |
+| `correct_option` | ENUM('A','B','C','D')        |        | NULL                                                  | Đáp án đúng (chỉ dùng khi `MULTIPLE_CHOICE`) |
 | `explanation`    | TEXT                         |        | NULL                                                  | Giải thích đáp án     |
 | `difficulty`     | ENUM('EASY','MEDIUM','HARD') |        | DEFAULT 'MEDIUM'                                      | Độ khó                |
 | `question_order` | INT                          |        | NOT NULL DEFAULT 1                                    | Thứ tự câu hỏi        |
 | `is_active`      | BOOLEAN                      |        | NOT NULL DEFAULT TRUE                                 | Câu hỏi còn kích hoạt |
 | `created_at`     | DATETIME                     |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo         |
 | `updated_at`     | DATETIME                     |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật    |
+
+> **Ghi chú:** `MULTIPLE_CHOICE` dùng cột `option_a..option_d` + `correct_option`; `MATCHING` (ghép từ) dùng cột `payload` (JSON) chứa danh sách cặp ghép, ví dụ `[{"left":"apple","right":"quả táo"}]`. Hai loại dùng chung bảng, không cần tách bảng mới.
 
 #### 12. Bảng `MINIGAME_ATTEMPTS` (Lịch sử làm bài)
 
@@ -612,7 +626,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     avatar_url VARCHAR(500) NULL,
     role ENUM('STUDENT', 'TEACHER', 'ADMIN') NOT NULL DEFAULT 'STUDENT',
-    status ENUM('ACTIVE', 'LOCKED', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+    status ENUM('PENDING', 'ACTIVE', 'LOCKED', 'INACTIVE') NOT NULL DEFAULT 'PENDING',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -676,8 +690,9 @@ CREATE TABLE topics (
     title VARCHAR(255) NOT NULL,
     description TEXT NULL,
     level ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED') NOT NULL,
+    status ENUM('DRAFT', 'PUBLISHED') NOT NULL DEFAULT 'DRAFT',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_topics_teacher FOREIGN KEY (teacher_id) REFERENCES users(user_id) ON DELETE RESTRICT
+    CONSTRAINT fk_topics_teacher FOREIGN KEY (teacher_id) REFERENCES teachers(teacher_id) ON DELETE RESTRICT
 );
 
 CREATE TABLE topics_enrollment (
@@ -702,6 +717,7 @@ CREATE TABLE lessons (
     title VARCHAR(255) NOT NULL,
     order_index INT NOT NULL DEFAULT 1,
     completion_threshold DECIMAL(5,2) NOT NULL DEFAULT 80.00,
+    status ENUM('DRAFT', 'PUBLISHED') NOT NULL DEFAULT 'DRAFT',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_lessons_topic FOREIGN KEY (topic_id) REFERENCES topics(topic_id) ON DELETE CASCADE
 );
@@ -722,6 +738,7 @@ CREATE TABLE vocabulary_items (
     meaning VARCHAR(500) NOT NULL,
     pronunciation VARCHAR(255) NULL,
     example TEXT NULL,
+    CONSTRAINT uq_vocab_lesson_word UNIQUE (lesson_id, word),
     CONSTRAINT fk_vocab_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE CASCADE
 );
 
@@ -739,11 +756,13 @@ CREATE TABLE minigame_questions (
     minigame_id BIGINT NOT NULL,
     vocab_id BIGINT NULL,
     question_text TEXT NOT NULL,
-    option_a VARCHAR(500) NOT NULL,
-    option_b VARCHAR(500) NOT NULL,
-    option_c VARCHAR(500) NOT NULL,
-    option_d VARCHAR(500) NOT NULL,
-    correct_option ENUM('A', 'B', 'C', 'D') NOT NULL,
+    question_type ENUM('MULTIPLE_CHOICE', 'MATCHING') NOT NULL DEFAULT 'MULTIPLE_CHOICE',
+    payload JSON NULL,
+    option_a VARCHAR(500) NULL,
+    option_b VARCHAR(500) NULL,
+    option_c VARCHAR(500) NULL,
+    option_d VARCHAR(500) NULL,
+    correct_option ENUM('A', 'B', 'C', 'D') NULL,
     explanation TEXT NULL,
     difficulty ENUM('EASY', 'MEDIUM', 'HARD') NOT NULL DEFAULT 'MEDIUM',
     question_order INT NOT NULL DEFAULT 1,
@@ -894,9 +913,10 @@ CREATE INDEX idx_error_logs_time ON system_error_logs(created_at DESC);
 
 ### 4.1. `minigame_questions`
 
-- Lưu trữ câu hỏi dạng trắc nghiệm 4 lựa chọn (`A/B/C/D`).
+- Lưu trữ câu hỏi minigame, phân loại theo `question_type`: `MULTIPLE_CHOICE` (trắc nghiệm 4 đáp án) hoặc `MATCHING` (ghép từ — mở rộng giai đoạn sau).
 - Mỗi câu hỏi thuộc về 1 `minigame_id`.
-- Trường `correct_option` bắt buộc phải có một trong `A/B/C/D`.
+- `MULTIPLE_CHOICE`: dùng cột `option_a..option_d` + `correct_option`.
+- `MATCHING`: dùng cột `payload` (JSON) chứa danh sách cặp ghép, ví dụ `[{"left":"apple","right":"quả táo"}]`.
 - Có thể gắn với `vocab_id` nếu câu hỏi sinh từ từ vựng có sẵn.
 
 ### 4.2. `comments`

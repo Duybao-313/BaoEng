@@ -47,7 +47,7 @@ Nền tảng đề xuất giải quyết các vấn đề trên bằng cách:
 | --------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Xác thực & Phân quyền | Đăng ký, đăng nhập, phân quyền theo vai trò (Student/Teacher/Admin), quản lý phiên đăng nhập trên Web & Mobile  |
 | Quản lý nội dung học  | Tạo/sửa/xóa chủ đề (Topic), tạo/sửa/xóa bài học (Lesson), upload tài liệu Video/PDF/Word                        |
-| Minigame từ vựng      | Upload file CSV từ vựng, hệ thống tự động parse và sinh minigame ôn tập (trắc nghiệm/ghép từ)                   |
+| Minigame từ vựng      | Upload file CSV từ vựng, hệ thống tự động parse và sinh minigame ôn tập (trắc nghiệm)                   |
 | Theo dõi tiến độ      | Tính toán và hiển thị % tiến độ hoàn thành theo chủ đề và tổng thể                                              |
 | Tương tác             | Bình luận cấp chủ đề, bình luận cấp bài học, giáo viên phản hồi bình luận                                       |
 | Quản trị hệ thống     | Cấp tài khoản giáo viên, quản lý phân quyền, Dashboard thống kê (User growth, Completion rate, Content metrics) |
@@ -74,6 +74,7 @@ Nền tảng đề xuất giải quyết các vấn đề trên bằng cách:
 | ------------------------------------- | :-----: | :-------------------------: | :---: |
 | Đăng ký/Đăng nhập                     |   ✅    |   ✅ (được cấp bởi Admin)   |  ✅   |
 | Xem danh sách chủ đề/bài học          |   ✅    |             ✅              |  ✅   |
+| Đăng ký tham gia chủ đề (enroll)      |   ✅    |             ❌              |  ❌   |
 | Học bài (xem Video/PDF/Word)          |   ✅    |             ❌              |  ❌   |
 | Chơi minigame                         |   ✅    | ❌ (chỉ xem trước/kiểm thử) |  ❌   |
 | Xem % tiến độ cá nhân                 |   ✅    |             ❌              |  ❌   |
@@ -102,7 +103,7 @@ Nền tảng đề xuất giải quyết các vấn đề trên bằng cách:
 1. Giáo viên đăng nhập, chọn bài học cần gắn minigame.
 2. Giáo viên tải lên file CSV theo định dạng chuẩn (cột: từ vựng, nghĩa, phiên âm, ví dụ).
 3. Hệ thống kiểm tra định dạng file (đuôi .csv, encoding UTF-8, số cột hợp lệ).
-4. Nếu hợp lệ: hệ thống parse từng dòng thành bản ghi từ vựng, lưu vào cơ sở dữ liệu, đồng thời sinh cấu trúc minigame (câu hỏi trắc nghiệm/ghép từ) từ bộ từ vựng.
+4. Nếu hợp lệ: hệ thống parse từng dòng thành bản ghi từ vựng, lưu vào cơ sở dữ liệu, đồng thời sinh cấu trúc minigame (câu hỏi trắc nghiệm) từ bộ từ vựng.
 5. Nếu không hợp lệ: hệ thống trả về danh sách lỗi cụ thể theo từng dòng (số dòng, loại lỗi) để giáo viên chỉnh sửa và tải lại.
 6. Hệ thống thông báo kết quả xử lý và hiển thị minigame ở trạng thái "chờ duyệt/sẵn sàng" để giáo viên xem trước.
 7. Giáo viên xác nhận xuất bản; minigame trở nên khả dụng với học sinh trong bài học tương ứng.
@@ -186,7 +187,7 @@ Nền tảng đề xuất giải quyết các vấn đề trên bằng cách:
 
 | ID             | Tên chức năng                                   | Actor    | Mô tả chi tiết                                                       | Tiêu chí chấp nhận (Given/When/Then)                                                                                                                                                                                    |
 | -------------- | ----------------------------------------------- | -------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FR-MINIGAME-01 | Tự động sinh câu hỏi từ file CSV                | Hệ thống | Hệ thống parse từng dòng CSV thành câu hỏi trắc nghiệm/ghép từ       | **Given** file CSV hợp lệ đã lưu vào cơ sở dữ liệu từ vựng, **When** hệ thống chạy tiến trình sinh minigame, **Then** số câu hỏi sinh ra bằng số dòng từ vựng hợp lệ, mỗi câu có đáp án đúng và các đáp án nhiễu hợp lý |
+| FR-MINIGAME-01 | Tự động sinh câu hỏi từ file CSV                | Hệ thống | Hệ thống parse từng dòng CSV thành câu hỏi trắc nghiệm       | **Given** file CSV hợp lệ đã lưu vào cơ sở dữ liệu từ vựng, **When** hệ thống chạy tiến trình sinh minigame, **Then** số câu hỏi sinh ra bằng số dòng từ vựng hợp lệ, mỗi câu có đáp án đúng và các đáp án nhiễu hợp lý |
 | FR-MINIGAME-02 | Chấm điểm minigame                              | Hệ thống | Hệ thống chấm và trả kết quả ngay sau khi học sinh nộp bài           | **Given** học sinh hoàn thành tất cả câu hỏi, **When** nhấn nộp bài, **Then** hệ thống trả về điểm số, số câu đúng/sai trong ≤ 1 giây                                                                                   |
 | FR-MINIGAME-03 | Giáo viên xem trước minigame trước khi xuất bản | Teacher  | Giáo viên kiểm tra chất lượng câu hỏi trước khi cho học sinh sử dụng | **Given** minigame ở trạng thái "chờ xuất bản", **When** giáo viên mở chế độ xem trước, **Then** hệ thống hiển thị đầy đủ câu hỏi/đáp án như học sinh sẽ thấy, không ghi nhận vào lịch sử học tập                       |
 | FR-MINIGAME-04 | Lưu lịch sử làm minigame                        | Hệ thống | Ghi nhận số lần làm, điểm cao nhất, thời gian làm gần nhất           | **Given** học sinh đã làm minigame ít nhất một lần, **When** truy vấn lịch sử, **Then** hệ thống trả về đầy đủ các lượt làm theo thứ tự thời gian giảm dần                                                              |
@@ -211,7 +212,7 @@ Nền tảng đề xuất giải quyết các vấn đề trên bằng cách:
 3. Hệ thống kiểm tra định dạng file (đuôi mở rộng, dung lượng ≤ giới hạn cấu hình, encoding UTF-8).
 4. Hệ thống đọc và parse từng dòng theo cấu trúc cột quy định (từ vựng, nghĩa, phiên âm, ví dụ).
 5. Hệ thống lưu các bản ghi từ vựng hợp lệ vào cơ sở dữ liệu, liên kết với `lesson_id`.
-6. Hệ thống sinh cấu trúc minigame (câu hỏi trắc nghiệm/ghép từ) dựa trên bộ từ vựng vừa lưu.
+6. Hệ thống sinh cấu trúc minigame (câu hỏi trắc nghiệm) dựa trên bộ từ vựng vừa lưu.
 7. Hệ thống chuyển minigame sang trạng thái "Chờ xuất bản" và thông báo hoàn tất cho giáo viên.
 8. Giáo viên xem trước minigame, sau đó xác nhận "Xuất bản".
 9. Hệ thống chuyển trạng thái minigame sang "Đã xuất bản", minigame khả dụng với Student.
@@ -241,7 +242,7 @@ Nền tảng đề xuất giải quyết các vấn đề trên bằng cách:
 **Main Flow:**
 
 1. Học sinh mở minigame gắn với bài học.
-2. Hệ thống hiển thị lần lượt các câu hỏi trắc nghiệm/ghép từ.
+2. Hệ thống hiển thị lần lượt các câu hỏi trắc nghiệm.
 3. Học sinh trả lời từng câu hỏi và nhấn "Nộp bài" khi hoàn tất.
 4. Hệ thống chấm điểm, tính số câu đúng/tổng số câu.
 5. Hệ thống so sánh điểm số với ngưỡng hoàn thành tối thiểu đã cấu hình cho bài học.

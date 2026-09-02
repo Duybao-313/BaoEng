@@ -89,6 +89,7 @@
 | `POST /auth/logout`          | 🔒 Yêu cầu JWT             |
 | `POST /auth/forgot-password` | Không (Public)             |
 | `POST /auth/reset-password`  | Không (Public)             |
+| `POST /auth/verify-email`    | Không (Public)             |
 
 ### 2.1. `POST /auth/register` — Đăng ký tài khoản Student
 
@@ -115,9 +116,9 @@
     "userId": 1002,
     "username": "nguyenvana",
     "email": "student@example.com",
-    "status": "ACTIVE"
+    "status": "PENDING"
   },
-  "message": "Đăng ký thành công. Vui lòng kiểm tra email để xác thực."
+  "message": "Đăng ký thành công. Tài khoản đang chờ xác thực email — vui lòng bấm liên kết xác nhận đã gửi trong email."
 }
 ```
 
@@ -163,7 +164,7 @@
 
 > **Refresh Token:** được set vào **HttpOnly Secure cookie** `refresh_token` (thời hạn 7 ngày), **không** trả trong JSON body. Chi tiết xem `Docs/JWT_Authentication_Design.md`.
 
-**Lỗi**: `401 INVALID_CREDENTIALS` | `403 ACCOUNT_LOCKED`
+**Lỗi**: `401 INVALID_CREDENTIALS` | `403 ACCOUNT_PENDING` | `403 ACCOUNT_LOCKED`
 
 ---
 
@@ -250,6 +251,27 @@
 
 ---
 
+### 2.7. `POST /auth/verify-email` — Xác thực email
+
+- **Actor**: Khách (Public) — người dùng bấm liên kết trong email kích hoạt.
+- **Mô tả**: Xác thực email bằng token một lần (hiệu lực 24 giờ) → chuyển `users.status` từ `PENDING` → `ACTIVE`.
+
+**Request:**
+
+```json
+{ "token": "<verify-email-token>" }
+```
+
+**Response 200:**
+
+```json
+{ "success": true, "message": "Xác thực email thành công." }
+```
+
+**Lỗi**: `400 INVALID_VERIFY_TOKEN` | `400 VERIFY_TOKEN_EXPIRED`
+
+---
+
 ## 3. NHÓM API HỒ SƠ NGƯỜI DÙNG (USER PROFILE)
 
 > Tương ứng: FR-STUDENT-05
@@ -304,6 +326,8 @@
 | `POST`   | `/topics`           | Teacher                 | Tạo chủ đề mới                                           |     🔒     |
 | `PUT`    | `/topics/{topicId}` | Teacher                 | Cập nhật chủ đề                                          |     🔒     |
 | `DELETE` | `/topics/{topicId}` | Teacher                 | Xóa chủ đề (cascade xóa bài học)                         |     🔒     |
+| `POST`   | `/topics/{topicId}/enroll` | Student                 | Đăng ký/tham gia chủ đề                                   |     🔒     |
+| `DELETE` | `/topics/{topicId}/enroll` | Student                 | Hủy đăng ký / rời chủ đề                                  |     🔒     |
 
 ### 4.1. `GET /topics` — Danh sách chủ đề
 
@@ -346,7 +370,37 @@
 }
 ```
 
-**Response 201:** đối tượng topic đã tạo (kèm `topicId`, `teacherId`, `createdAt`).
+**Response 201:** đối tượng topic đã tạo (kèm `topicId`, `teacherId`, `createdAt`, `status`).
+
+### 4.3. `POST /topics/{topicId}/enroll` — Đăng ký tham gia chủ đề (Student)
+
+- **Actor**: Student
+- **Mô tả**: Tạo hoặc tái kích hoạt bản ghi `topics_enrollment` (idempotent nhờ `UNIQUE(student_id, topic_id)`). Hệ thống có thể tự gọi (auto-join) khi học sinh mở bài học đầu tiên của chủ đề.
+
+**Response 200/201:**
+
+```json
+{
+  "success": true,
+  "data": { "enrollmentId": 301, "topicId": 3, "status": "ENROLLED" },
+  "message": "Đã đăng ký tham gia chủ đề."
+}
+```
+
+**Lỗi**: `404 TOPIC_NOT_FOUND` | `409 ALREADY_ENROLLED`
+
+### 4.4. `DELETE /topics/{topicId}/enroll` — Hủy đăng ký / rời chủ đề (Student)
+
+- **Actor**: Student
+- **Mô tả**: Chuyển `topics_enrollment.status` sang `DROPPED` (giữ nguyên lịch sử tiến độ).
+
+**Response 200:**
+
+```json
+{ "success": true, "message": "Đã rời chủ đề." }
+```
+
+**Lỗi**: `404 ENROLLMENT_NOT_FOUND`
 
 ---
 
@@ -574,6 +628,7 @@
 ```
 
 > **Lưu ý:** Teacher ở chế độ xem trước sẽ thấy thêm trường `is_correct` trong options (FR-MINIGAME-03).
+> **Loại câu hỏi (`questionType`):** `MULTIPLE_CHOICE` dùng `payload.options` + `is_correct`; `MATCHING` (ghép từ — mở rộng giai đoạn sau) dùng `payload.pairs`, ví dụ `[{"left":"apple","right":"quả táo"}]`.
 
 ### 8.2. `POST /minigames/{minigameId}/attempts` — Nộp bài
 
@@ -605,6 +660,8 @@
 }
 ```
 
+> **Lưu ý (lấy bản ghi mới nhất):** Khi 1 bài học có nhiều minigame đã **PUBLISHED**, bài học chỉ được tính là **hoàn thành** khi học sinh đạt ngưỡng `completion_threshold` ở **tất cả** các minigame đó. Trạng thái/điểm tiến độ luôn lấy từ **bản ghi mới nhất** (`attempt_number` cao nhất / `created_at` mới nhất) — học sinh làm lại sẽ tạo bản ghi mới, không ghi đè lịch sử cũ.
+
 ### 8.3. `GET /minigames/{minigameId}/attempts` — Lịch sử làm bài
 
 **Response 200:**
@@ -634,6 +691,8 @@
 > **Yêu cầu JWT (🔒):** Chỉ Student. `userId` lấy từ JWT, **không** truyền qua body/URL.
 
 ### 9.1. `GET /progress` — Tiến độ tổng thể của Student
+
+> **Ghi chú:** Các số liệu (`completedLessons`, `progressPercent`) được tính từ **bản ghi `LESSON_PROGRESS` mới nhất** của từng bài học (theo `attempt_number DESC`); các bản ghi cũ chỉ phục vụ lịch sử.
 
 **Response 200:**
 
@@ -679,7 +738,7 @@
   "data": {
     "content": [
       {
-        "commentId": "665b987654321fedcba98765",
+        "commentId": 121,
         "target": { "type": "LESSON", "id": 15 },
         "author": {
           "userId": 1002,
@@ -691,7 +750,7 @@
         "replyCount": 1,
         "replies": [
           {
-            "replyId": "665b987654321fedcba98766",
+            "replyId": 122,
             "author": {
               "userId": 501,
               "fullName": "Teacher John",
@@ -799,9 +858,9 @@
     "userId": 501,
     "email": "teacher@example.com",
     "role": "TEACHER",
-    "status": "ACTIVE"
+    "status": "PENDING"
   },
-  "message": "Đã tạo tài khoản và gửi email kích hoạt."
+  "message": "Đã tạo tài khoản. Teacher cần xác thực email (liên kết kích hoạt) trước khi đăng nhập."
 }
 ```
 
@@ -841,14 +900,71 @@
 
 ---
 
-## 13. PHÂN QUYỀN TRUY CẬP (RBAC MAP)
+## 13. NHÓM API CHỨNG CHỈ GIÁO VIÊN (TEACHER CERTIFICATES)
+
+> Tương ứng: bảng `teacher_certificates` (Database Design) — Teacher quản lý chứng chỉ của mình; Admin duyệt (verify). Trạng thái: `PENDING | VERIFIED | REJECTED`.
+
+> **Yêu cầu JWT (🔒):** `userId` lấy từ JWT → map sang `teacherId`.
+
+| Method   | Endpoint                                                          | Actor   | Mô tả                               | Auth (JWT) |
+| -------- | ----------------------------------------------------------------- | ------- | ----------------------------------- | :--------: |
+| `GET`    | `/teachers/me/certificates`                                       | Teacher | Danh sách chứng chỉ của giáo viên   |     🔒     |
+| `POST`   | `/teachers/me/certificates`                                       | Teacher | Thêm chứng chỉ (mặc định `PENDING`) |     🔒     |
+| `PUT`    | `/teachers/me/certificates/{certificateId}`                       | Teacher | Cập nhật chứng chỉ                  |     🔒     |
+| `DELETE` | `/teachers/me/certificates/{certificateId}`                       | Teacher | Xóa chứng chỉ                       |     🔒     |
+| `POST`   | `/admin/teachers/{teacherId}/certificates/{certificateId}/verify` | Admin   | Duyệt: `VERIFIED` / `REJECTED`      |     🔒     |
+
+### 13.1. `POST /teachers/me/certificates` — Thêm chứng chỉ
+
+**Request:**
+
+```json
+{
+  "name": "IELTS",
+  "score": "8.5",
+  "issuingBody": "IDP",
+  "imageUrl": "https://example.com/certs/ielts.jpg"
+}
+```
+
+**Response 201:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "certificateId": 201,
+    "name": "IELTS",
+    "score": "8.5",
+    "issuingBody": "IDP",
+    "status": "PENDING",
+    "imageUrl": "https://example.com/certs/ielts.jpg"
+  },
+  "message": "Đã thêm chứng chỉ, chờ Admin xác minh."
+}
+```
+
+### 13.2. `POST /admin/teachers/{teacherId}/certificates/{certificateId}/verify` — Duyệt chứng chỉ
+
+**Request:**
+
+```json
+{ "status": "VERIFIED" }
+```
+
+**Response 200:** đối tượng certificate với `status` đã cập nhật.
+
+---
+
+## 14. PHÂN QUYỀN TRUY CẬP (RBAC MAP)
 
 | Nhóm API                       | Public | Student | Teacher | Admin |
 | ------------------------------ | :----: | :-----: | :-----: | :---: |
-| Auth (register, login, forgot) |   ✅   |   ✅    |   ✅    |  ✅   |
+| Auth (register, login, verify, forgot) |   ✅   |   ✅    |   ✅    |  ✅   |
 | Profile (`/users/me`)          |   ❌   |   ✅    |   ✅    |  ✅   |
 | Topics (GET)                   |   ❌   |   ✅    |   ✅    |  ✅   |
 | Topics (POST/PUT/DELETE)       |   ❌   |   ❌    |   ✅    |  ❌   |
+| Topics (enroll/unenroll)       |   ❌   |   ✅    |   ❌    |  ❌   |
 | Lessons (GET)                  |   ❌   |   ✅    |   ✅    |  ✅   |
 | Lessons (POST/PUT/DELETE)      |   ❌   |   ❌    |   ✅    |  ❌   |
 | Materials (GET)                |   ❌   |   ✅    |   ✅    |  ✅   |
@@ -858,11 +974,13 @@
 | Minigame (publish)             |   ❌   |   ❌    |   ✅    |  ❌   |
 | Progress                       |   ❌   |   ✅    |   ❌    |  ❌   |
 | Comments (GET/POST)            |   ❌   |   ✅    |   ✅    |  ❌   |
+| Teacher Certificates (CRUD)    |   ❌   |   ❌    |   ✅    |  ❌   |
+| Teacher Certificates (verify)  |   ❌   |   ❌    |   ❌    |  ✅   |
 | Admin (`/admin/*`)             |   ❌   |   ❌    |   ❌    |  ✅   |
 
 ---
 
-## 14. GHI CHÚ TRIỂN KHAI (BACKEND IMPLEMENTATION NOTES)
+## 15. GHI CHÚ TRIỂN KHAI (BACKEND IMPLEMENTATION NOTES)
 
 1. **Sinh OpenAPI tự động:** Thêm dependency `springdoc-openapi-starter-webmvc-ui` vào `pom.xml`, sau đó truy cập `http://localhost:8080/swagger-ui.html` để xem và đối chiếu.
 2. **Chuẩn hóa Envelope:** Dùng 1 lớp `ApiResponse<T>` chung (fields: `success`, `data`, `message`, `timestamp`) cho mọi response.
