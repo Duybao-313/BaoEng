@@ -14,3 +14,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+jwt:
+  secret: ${JWT_SECRET:default-secret-key-for-dev-only-change-me}
+  access-token-ttl: 10800 # 3 giờ
+  refresh-token-ttl: 604800 # 7 ngày
+  cookie-secure: false # true khi chạy HTTPS (production)
