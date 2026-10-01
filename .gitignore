@@ -20,3 +20,7 @@ Thumbs.db
 
 # Environment files (secrets)
 .env
+
+# Tool caches / local state
+.expo/
+.postman/
