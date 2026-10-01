@@ -30,6 +30,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -67,16 +68,56 @@ public class SecurityConfig {
         return new UserJwtAuthenticationConverter();
     }
 
+    /**
+     * Cấu hình CORS cho các client chạy trên trình duyệt (Vite/React, Expo Web).
+     *
+     * <p>Origin đọc từ {@code app.cors.*} trong {@code application.yaml} — ghi đè khi deploy
+     * bằng biến môi trường {@code CORS_ALLOWED_ORIGINS} / {@code CORS_ALLOWED_ORIGIN_PATTERNS}
+     * (nhiều giá trị cách nhau bằng dấu phẩy).
+     *
+     * <p>{@code allowCredentials(true)} là BẮT BUỘC vì Refresh Token nằm trong HttpOnly cookie
+     * {@code refresh_token} — trình duyệt chỉ gửi cookie khi server trả về header
+     * {@code Access-Control-Allow-Credentials: true}.
+     *
+     * <p>Lưu ý: app mobile (Expo Go / native) KHÔNG dùng CORS — chỉ client web mới cần.
+     */
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${app.cors.allowed-origins:}") List<String> allowedOrigins,
+            @Value("${app.cors.allowed-origin-patterns:}") List<String> allowedOriginPatterns,
+            @Value("${app.cors.max-age-seconds:3600}") long maxAgeSeconds) {
+
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+
+        // Origin cụ thể — nên dùng ở production.
+        List<String> origins = cleanCorsValues(allowedOrigins);
+        if (!origins.isEmpty()) {
+            config.setAllowedOrigins(origins);
+        }
+
+        // Pattern hỗ trợ wildcard CỔNG dạng "[*]", ví dụ "http://localhost:[*]" — dùng cho dev.
+        List<String> patterns = cleanCorsValues(allowedOriginPatterns);
+        if (!patterns.isEmpty()) {
+            config.setAllowedOriginPatterns(patterns);
+        }
+
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of(
+                "Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
         config.setAllowCredentials(true);
+        config.setMaxAge(maxAgeSeconds); // cache kết quả preflight (giây)
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    /** Loại bỏ phần tử rỗng/khoảng trắng khi danh sách được bind từ biến môi trường. */
+    private static List<String> cleanCorsValues(List<String> values) {
+        return values.stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .toList();
     }
 
     @Bean

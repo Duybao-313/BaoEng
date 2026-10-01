@@ -16,7 +16,7 @@ public enum ErrorCode {
     REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "Refresh token has expired"),
     FORBIDDEN(HttpStatus.FORBIDDEN, "You do not have permission to perform this action"),
 
-    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Incorrect email or password"),
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Incorrect username or password"),
     ACCOUNT_PENDING(HttpStatus.FORBIDDEN, "Account is pending email verification"),
     ACCOUNT_LOCKED(HttpStatus.FORBIDDEN, "Account has been locked"),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "Email is already in use"),

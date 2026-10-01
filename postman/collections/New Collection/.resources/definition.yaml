@@ -1,0 +1,7 @@
+$kind: collection
+variables:
+  - key: json_web_token_08jy
+    secret: true
+    disabled: false
+  - key: baseURL
+    value: "http://localhost:8080"

@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Đăng xuất (cần access token; vô hiệu hóa refresh token)"
+url: "{{baseURL}}/api/v1/auth/logout"
+method: POST
+headers:
+  - key: Authorization
+    value: "Bearer {{json_web_token_08jy}}"
+order: 6000

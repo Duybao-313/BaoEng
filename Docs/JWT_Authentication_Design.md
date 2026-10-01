@@ -93,7 +93,7 @@ sequenceDiagram
     participant U as Người dùng (Web/Mobile)
     participant A as Backend (Auth Service)
 
-    U->>A: 1. POST /auth/login (login + password)
+    U->>A: 1. POST /auth/login (username + password)
     A->>A: Xác thực, tạo Access Token (3h) + Refresh Token (7d)
     A-->>U: Access Token (JSON body) + Refresh Token (HttpOnly cookie)
     U->>A: 2. Gọi API với Authorization: Bearer <accessToken>
@@ -107,7 +107,7 @@ sequenceDiagram
 
 **Chi tiết từng bước:**
 
-1. **Đăng nhập:** User gửi `login` (email hoặc username) + `password` → Backend xác thực → tạo **2 token**:
+1. **Đăng nhập:** User gửi `username` + `password` → Backend xác thực → tạo **2 token**:
    - Access Token (3 giờ) trả về trong JSON body.
    - Refresh Token (7 ngày) set vào HttpOnly Secure cookie `refresh_token`.
 2. **Sử dụng:** Client gọi mọi API kèm header `Authorization: Bearer <accessToken>`.

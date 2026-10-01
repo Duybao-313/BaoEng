@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Đăng nhập bằng username → trả accessToken. Sau khi login, lưu accessToken vào biến json_web_token_08jy"
+url: "{{baseURL}}/api/v1/auth/login"
+method: POST
+body:
+  type: json
+  content: '{"username":"duybao","password":"12345678"}'
+order: 2000

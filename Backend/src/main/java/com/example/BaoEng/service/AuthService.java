@@ -90,7 +90,9 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request, HttpServletResponse response) {
-        User user = userRepository.findByEmailOrUsername(request.login(), request.login())
+        // Đăng nhập CHỈ bằng username (không dùng email).
+        String username = request.username().trim();
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {

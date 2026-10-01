@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Xác thực email (dán verify token in ra ở console sau khi register)"
+url: "{{baseURL}}/api/v1/auth/verify-email"
+method: POST
+body:
+  type: json
+  content: '{"token":"<verify-token>"}'
+order: 3000

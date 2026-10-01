@@ -55,7 +55,7 @@
   "success": false,
   "error": {
     "code": "INVALID_CREDENTIALS",
-    "message": "Email hoặc mật khẩu không chính xác",
+    "message": "Tên đăng nhập hoặc mật khẩu không chính xác",
     "details": null
   },
   "timestamp": "2026-08-22T10:00:00Z"
@@ -74,6 +74,23 @@
 | 413         | File vượt quá dung lượng      | `FILE_TOO_LARGE`                         |
 | 429         | Vượt giới hạn tần suất        | `RATE_LIMITED`                           |
 | 500         | Lỗi hệ thống                  | `INTERNAL_ERROR`                         |
+
+### 1.5. CORS (Cross-Origin Resource Sharing)
+
+Backend cho phép client **web** gọi API từ origin khác. App mobile native (Expo Go / build) **không** dùng CORS.
+
+| Cấu hình              | Giá trị mặc định (dev)                                                                      | Ghi đè bằng biến môi trường    |
+| --------------------- | ------------------------------------------------------------------------------------------- | ------------------------------ |
+| Origin được phép      | `http://localhost:5173` (Vite), `http://localhost:3000`, `http://localhost:8081` (Expo Web) | `CORS_ALLOWED_ORIGINS`         |
+| Pattern wildcard cổng | `http://localhost:[*]`, `http://127.0.0.1:[*]`                                              | `CORS_ALLOWED_ORIGIN_PATTERNS` |
+| Method                | `GET, POST, PUT, PATCH, DELETE, OPTIONS`                                                    | —                              |
+| Header                | `Authorization, Content-Type, Accept, Origin, X-Requested-With`                             | —                              |
+| Credentials           | `true` — **bắt buộc** để trình duyệt gửi cookie `refresh_token`                             | —                              |
+| Cache preflight       | 3600 giây                                                                                   | —                              |
+
+> **Production:** đặt `CORS_ALLOWED_ORIGINS=https://<domain-thật>` và để trống `CORS_ALLOWED_ORIGIN_PATTERNS`.
+>
+> **Lưu ý:** vì `allowCredentials = true`, **không** được dùng origin `*` — phải liệt kê origin cụ thể.
 
 ---
 
@@ -129,18 +146,22 @@
 ### 2.2. `POST /auth/login` — Đăng nhập
 
 - **Actor**: Student, Teacher, Admin
-- **Mô tả**: Xác thực bằng **email hoặc tên tài khoản (username)** và trả về cặp Access Token + Refresh Token.
+- **Mô tả**: Xác thực bằng **tên tài khoản (username)** và mật khẩu, trả về cặp Access Token + Refresh Token.
 
 **Request:**
 
 ```json
 {
-  "login": "student@example.com",
+  "username": "nguyenvana",
   "password": "MatKhau@123"
 }
 ```
 
-> **`login`** nhận một trong hai giá trị: **email** hoặc **username**. Ví dụ: `"student@example.com"` hoặc `"nguyenvana"`.
+> **Đăng nhập chỉ bằng `username`** (không dùng email). Ví dụ: `"nguyenvana"`.
+> Tra cứu theo cột `users.username` (unique) — collation MySQL là case-insensitive nên
+> `"NguyenVanA"` và `"nguyenvana"` là cùng một tài khoản. Email chỉ dùng cho
+> xác thực tài khoản và đặt lại mật khẩu.
+> Lỗi thiếu field: `400 VALIDATION_ERROR` — `username must not be blank`.
 
 **Response 200:**
 
@@ -319,15 +340,15 @@
 
 > Tương ứng: FR-STUDENT-01, FR-TEACHER-01, FR-CONTENT-02, FR-CONTENT-03
 
-| Method   | Endpoint            | Actor                   | Mô tả                                                    | Auth (JWT) |
-| -------- | ------------------- | ----------------------- | -------------------------------------------------------- | :--------: |
-| `GET`    | `/topics`           | Student, Teacher, Admin | Danh sách chủ đề (lọc `level`, tìm kiếm `q`, phân trang) |     🔒     |
-| `GET`    | `/topics/{topicId}` | Student, Teacher, Admin | Chi tiết chủ đề kèm % tiến độ (nếu là Student)           |     🔒     |
-| `POST`   | `/topics`           | Teacher                 | Tạo chủ đề mới                                           |     🔒     |
-| `PUT`    | `/topics/{topicId}` | Teacher                 | Cập nhật chủ đề                                          |     🔒     |
-| `DELETE` | `/topics/{topicId}` | Teacher                 | Xóa chủ đề (cascade xóa bài học)                         |     🔒     |
-| `POST`   | `/topics/{topicId}/enroll` | Student                 | Đăng ký/tham gia chủ đề                                   |     🔒     |
-| `DELETE` | `/topics/{topicId}/enroll` | Student                 | Hủy đăng ký / rời chủ đề                                  |     🔒     |
+| Method   | Endpoint                   | Actor                   | Mô tả                                                    | Auth (JWT) |
+| -------- | -------------------------- | ----------------------- | -------------------------------------------------------- | :--------: |
+| `GET`    | `/topics`                  | Student, Teacher, Admin | Danh sách chủ đề (lọc `level`, tìm kiếm `q`, phân trang) |     🔒     |
+| `GET`    | `/topics/{topicId}`        | Student, Teacher, Admin | Chi tiết chủ đề kèm % tiến độ (nếu là Student)           |     🔒     |
+| `POST`   | `/topics`                  | Teacher                 | Tạo chủ đề mới                                           |     🔒     |
+| `PUT`    | `/topics/{topicId}`        | Teacher                 | Cập nhật chủ đề                                          |     🔒     |
+| `DELETE` | `/topics/{topicId}`        | Teacher                 | Xóa chủ đề (cascade xóa bài học)                         |     🔒     |
+| `POST`   | `/topics/{topicId}/enroll` | Student                 | Đăng ký/tham gia chủ đề                                  |     🔒     |
+| `DELETE` | `/topics/{topicId}/enroll` | Student                 | Hủy đăng ký / rời chủ đề                                 |     🔒     |
 
 ### 4.1. `GET /topics` — Danh sách chủ đề
 
@@ -958,25 +979,25 @@
 
 ## 14. PHÂN QUYỀN TRUY CẬP (RBAC MAP)
 
-| Nhóm API                       | Public | Student | Teacher | Admin |
-| ------------------------------ | :----: | :-----: | :-----: | :---: |
+| Nhóm API                               | Public | Student | Teacher | Admin |
+| -------------------------------------- | :----: | :-----: | :-----: | :---: |
 | Auth (register, login, verify, forgot) |   ✅   |   ✅    |   ✅    |  ✅   |
-| Profile (`/users/me`)          |   ❌   |   ✅    |   ✅    |  ✅   |
-| Topics (GET)                   |   ❌   |   ✅    |   ✅    |  ✅   |
-| Topics (POST/PUT/DELETE)       |   ❌   |   ❌    |   ✅    |  ❌   |
-| Topics (enroll/unenroll)       |   ❌   |   ✅    |   ❌    |  ❌   |
-| Lessons (GET)                  |   ❌   |   ✅    |   ✅    |  ✅   |
-| Lessons (POST/PUT/DELETE)      |   ❌   |   ❌    |   ✅    |  ❌   |
-| Materials (GET)                |   ❌   |   ✅    |   ✅    |  ✅   |
-| Materials (POST/DELETE)        |   ❌   |   ❌    |   ✅    |  ❌   |
-| Vocab CSV (POST)               |   ❌   |   ❌    |   ✅    |  ❌   |
-| Minigame (play/submit)         |   ❌   |   ✅    |   ❌    |  ❌   |
-| Minigame (publish)             |   ❌   |   ❌    |   ✅    |  ❌   |
-| Progress                       |   ❌   |   ✅    |   ❌    |  ❌   |
-| Comments (GET/POST)            |   ❌   |   ✅    |   ✅    |  ❌   |
-| Teacher Certificates (CRUD)    |   ❌   |   ❌    |   ✅    |  ❌   |
-| Teacher Certificates (verify)  |   ❌   |   ❌    |   ❌    |  ✅   |
-| Admin (`/admin/*`)             |   ❌   |   ❌    |   ❌    |  ✅   |
+| Profile (`/users/me`)                  |   ❌   |   ✅    |   ✅    |  ✅   |
+| Topics (GET)                           |   ❌   |   ✅    |   ✅    |  ✅   |
+| Topics (POST/PUT/DELETE)               |   ❌   |   ❌    |   ✅    |  ❌   |
+| Topics (enroll/unenroll)               |   ❌   |   ✅    |   ❌    |  ❌   |
+| Lessons (GET)                          |   ❌   |   ✅    |   ✅    |  ✅   |
+| Lessons (POST/PUT/DELETE)              |   ❌   |   ❌    |   ✅    |  ❌   |
+| Materials (GET)                        |   ❌   |   ✅    |   ✅    |  ✅   |
+| Materials (POST/DELETE)                |   ❌   |   ❌    |   ✅    |  ❌   |
+| Vocab CSV (POST)                       |   ❌   |   ❌    |   ✅    |  ❌   |
+| Minigame (play/submit)                 |   ❌   |   ✅    |   ❌    |  ❌   |
+| Minigame (publish)                     |   ❌   |   ❌    |   ✅    |  ❌   |
+| Progress                               |   ❌   |   ✅    |   ❌    |  ❌   |
+| Comments (GET/POST)                    |   ❌   |   ✅    |   ✅    |  ❌   |
+| Teacher Certificates (CRUD)            |   ❌   |   ❌    |   ✅    |  ❌   |
+| Teacher Certificates (verify)          |   ❌   |   ❌    |   ❌    |  ✅   |
+| Admin (`/admin/*`)                     |   ❌   |   ❌    |   ❌    |  ✅   |
 
 ---
 

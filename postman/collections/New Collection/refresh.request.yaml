@@ -1,0 +1,5 @@
+$kind: http-request
+description: "Làm mới access token (đọc refresh_token từ HttpOnly cookie — cần enable cookie trong Postman)"
+url: "{{baseURL}}/api/v1/auth/refresh"
+method: POST
+order: 5000

@@ -1,0 +1,11 @@
+$kind: http-request
+description: "Cập nhật hồ sơ cá nhân (cần access token)"
+url: "{{baseURL}}/api/v1/users/me"
+method: PUT
+headers:
+  - key: Authorization
+    value: "Bearer {{json_web_token_08jy}}"
+body:
+  type: json
+  content: '{"fullName":"Duy Bao Updated","avatarUrl":"https://cdn.example.com/avatars/me.png"}'
+order: 9000

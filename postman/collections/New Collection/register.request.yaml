@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Đăng ký tài khoản Student mới"
+url: "{{baseURL}}/api/v1/auth/register"
+method: POST
+body:
+  type: json
+  content: '{"username":"duybao","fullName":"Duy Bao","email":"duybao@gmail.com","password":"12345678"}'
+order: 1000

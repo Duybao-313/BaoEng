@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Xem thông tin người dùng đang đăng nhập (cần access token)"
+url: "{{baseURL}}/api/v1/users/me"
+method: GET
+headers:
+  - key: Authorization
+    value: "Bearer {{json_web_token_08jy}}"
+order: 4000

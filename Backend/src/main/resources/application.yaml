@@ -20,3 +20,15 @@ jwt:
   access-token-ttl: 10800 # 3 giờ
   refresh-token-ttl: 604800 # 7 ngày
   cookie-secure: false # true khi chạy HTTPS (production)
+
+app:
+  cors:
+    # Origin của client web được phép gọi API (nhiều giá trị cách nhau bằng dấu phẩy).
+    # 5173 = Vite, 3000 = CRA/Next, 8081 = Expo Web (Metro).
+    # Production: chỉ khai báo domain thật, ví dụ CORS_ALLOWED_ORIGINS=https://baoeng.vn
+    allowed-origins: "${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:8081}"
+    # Pattern hỗ trợ wildcard CỔNG dạng [*] — tiện khi cổng dev thay đổi.
+    # Production: để trống và chỉ dùng allowed-origins.
+    allowed-origin-patterns: "${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:[*],http://127.0.0.1:[*]}"
+    # Thời gian cache kết quả preflight (giây).
+    max-age-seconds: 3600
