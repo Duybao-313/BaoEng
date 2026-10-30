@@ -32,6 +32,31 @@ export function register(payload) {
   return request(ENDPOINTS.auth.register, { method: "POST", body: payload });
 }
 
-export function getCurrentUser() {
-  return request(ENDPOINTS.auth.me);
+/** Dang xuat: vo hieu hoa refresh token hien tai. */
+export function logout() {
+  return request(ENDPOINTS.auth.logout, { method: "POST" });
+}
+
+/** @param {{ email: string }} payload */
+export function forgotPassword(payload) {
+  return request(ENDPOINTS.auth.forgotPassword, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+/** @param {{ token: string, newPassword: string }} payload */
+export function resetPassword(payload) {
+  return request(ENDPOINTS.auth.resetPassword, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+/** @param {{ token: string }} payload */
+export function verifyEmail(payload) {
+  return request(ENDPOINTS.auth.verifyEmail, {
+    method: "POST",
+    body: payload,
+  });
 }

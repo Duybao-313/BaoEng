@@ -1,10 +1,16 @@
 import { useCallback, useState } from "react";
 
 import { register } from "../../../api";
+import { DEMO_SIGN_UP } from "../../../constants";
 import { validateSignUp } from "../../../utils";
 import { toAuthMessage } from "../errors";
 
-const INITIAL_VALUES = { name: "", email: "", password: "" };
+const INITIAL_VALUES = {
+  username: "",
+  fullName: "",
+  email: "",
+  password: "",
+};
 
 /** Quan ly state + nghiep vu cho man hinh dang ky. */
 export function useSignUp() {
@@ -24,6 +30,12 @@ export function useSignUp() {
     setFormError(null);
   }, []);
 
+  const fillDemo = useCallback(() => {
+    setValues((prev) => ({ ...prev, ...DEMO_SIGN_UP }));
+    setErrors({});
+    setFormError(null);
+  }, []);
+
   const submit = useCallback(async () => {
     const nextErrors = validateSignUp(values);
     setErrors(nextErrors);
@@ -33,7 +45,8 @@ export function useSignUp() {
     setFormError(null);
     try {
       const account = await register({
-        name: values.name.trim(),
+        username: values.username.trim(),
+        fullName: values.fullName.trim(),
         email: values.email.trim(),
         password: values.password,
       });
@@ -46,5 +59,5 @@ export function useSignUp() {
     }
   }, [values]);
 
-  return { values, errors, formError, submitting, setField, submit };
+  return { values, errors, formError, submitting, setField, submit, fillDemo };
 }

@@ -15,8 +15,13 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Stack.Screen name="index" />
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" />
+        <Stack.Screen name="topic/[id]" />
+        <Stack.Screen name="lesson/[id]" />
+        <Stack.Screen name="minigame/[id]" />
+        <Stack.Screen name="minigame/result" />
+        <Stack.Screen name="search" />
       </Stack>
     </AppProviders>
   );

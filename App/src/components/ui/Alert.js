@@ -3,30 +3,56 @@ import { StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing, typography } from "../../constants/theme";
 import { Icon } from "./Icon";
 
+const VARIANTS = {
+  error: {
+    icon: "error-outline",
+    iconColor: colors.danger,
+    container: { backgroundColor: colors.errorContainer },
+    title: { color: colors.danger },
+    message: { color: colors.onErrorContainer },
+  },
+  success: {
+    icon: "check-circle",
+    iconColor: colors.success,
+    container: { backgroundColor: colors.secondaryFixed },
+    title: { color: colors.onSecondaryFixedVariant },
+    message: { color: colors.onSecondaryFixedVariant },
+  },
+};
+
 /**
- * Bang thong bao (mac dinh: loi) — dung cho loi o cap form.
+ * Bang thong bao (mac dinh: loi) — dung cho thong bao o cap man hinh.
  *
  * @param {{
  *   visible?: boolean,
+ *   variant?: 'error' | 'success',
  *   title?: string,
  *   message?: string | null,
  *   style?: any,
  * }} props
  */
-export function Alert({ visible = true, title, message, style }) {
+export function Alert({
+  visible = true,
+  variant = "error",
+  title,
+  message,
+  style,
+}) {
   if (!visible || !message) return null;
 
+  const tone = VARIANTS[variant] ?? VARIANTS.error;
+
   return (
-    <View accessibilityRole="alert" style={[styles.container, style]}>
+    <View accessibilityRole="alert" style={[styles.container, tone.container, style]}>
       <Icon
-        name="error-outline"
+        name={tone.icon}
         size={20}
-        color={colors.danger}
+        color={tone.iconColor}
         style={styles.icon}
       />
       <View style={styles.body}>
-        {title ? <Text style={styles.title}>{title}</Text> : null}
-        <Text style={styles.message}>{message}</Text>
+        {title ? <Text style={[styles.title, tone.title]}>{title}</Text> : null}
+        <Text style={[styles.message, tone.message]}>{message}</Text>
       </View>
     </View>
   );

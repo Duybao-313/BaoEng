@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 
-import { login } from "../../../api";
+import { DEMO_SIGN_IN } from "../../../constants";
+import { useAuth } from "../../../store/auth";
 import { validateSignIn } from "../../../utils";
 import { toAuthMessage } from "../errors";
 
@@ -11,6 +12,7 @@ const INITIAL_VALUES = { username: "", password: "", remember: true };
  * Man hinh chi lo hien thi, khong xu ly logic.
  */
 export function useSignIn() {
+  const { signIn } = useAuth();
   const [values, setValues] = useState(INITIAL_VALUES);
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState(null);
@@ -27,6 +29,12 @@ export function useSignIn() {
     setFormError(null);
   }, []);
 
+  const fillDemo = useCallback(() => {
+    setValues((prev) => ({ ...prev, ...DEMO_SIGN_IN }));
+    setErrors({});
+    setFormError(null);
+  }, []);
+
   const submit = useCallback(async () => {
     const nextErrors = validateSignIn(values);
     setErrors(nextErrors);
@@ -36,7 +44,7 @@ export function useSignIn() {
     setFormError(null);
     try {
       // Backend dang nhap bang username (khong dung email).
-      const session = await login({
+      const session = await signIn({
         username: values.username.trim(),
         password: values.password,
       });
@@ -47,7 +55,7 @@ export function useSignIn() {
     } finally {
       setSubmitting(false);
     }
-  }, [values]);
+  }, [values, signIn]);
 
-  return { values, errors, formError, submitting, setField, submit };
+  return { values, errors, formError, submitting, setField, submit, fillDemo };
 }

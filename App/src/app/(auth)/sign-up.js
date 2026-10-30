@@ -8,12 +8,12 @@ import { useSignUp } from "../../features/auth";
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { values, errors, formError, submitting, setField, submit } =
+  const { values, errors, formError, submitting, setField, submit, fillDemo } =
     useSignUp();
 
   const handleSubmit = async () => {
     const result = await submit();
-    if (result.ok) router.replace("/");
+    if (result.ok) router.replace("/(auth)/sign-in");
   };
 
   return (
@@ -34,15 +34,36 @@ export default function SignUpScreen() {
 
         <Alert title="Đăng ký không thành công" message={formError} />
 
+        <Button
+          label="Điền nhanh dữ liệu mẫu"
+          variant="outline"
+          icon="bolt"
+          onPress={fillDemo}
+        />
+
         <Card>
+          <Input
+            label="Tên đăng nhập"
+            leftIcon="person"
+            placeholder="VD: quocbao24"
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="username"
+            returnKeyType="next"
+            value={values.username}
+            onChangeText={(text) => setField("username", text)}
+            error={errors.username}
+          />
+
           <Input
             label="Họ và tên"
             leftIcon="badge"
             placeholder="VD: Nguyễn Quốc Bảo"
             autoCapitalize="words"
-            value={values.name}
-            onChangeText={(text) => setField("name", text)}
-            error={errors.name}
+            returnKeyType="next"
+            value={values.fullName}
+            onChangeText={(text) => setField("fullName", text)}
+            error={errors.fullName}
           />
 
           <Input
@@ -78,6 +99,11 @@ export default function SignUpScreen() {
             loading={submitting}
             onPress={handleSubmit}
           />
+
+          <Text style={styles.verifyNote}>
+            Sau khi đăng ký, vui lòng kiểm tra email để xác thực tài khoản trước
+            khi đăng nhập.
+          </Text>
         </Card>
 
         <View style={styles.signInRow}>
@@ -120,6 +146,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.xs,
     marginTop: spacing.sm,
+  },
+  verifyNote: {
+    fontSize: typography.labelSm,
+    lineHeight: 16,
+    color: colors.textMuted,
+    textAlign: "center",
   },
   mutedText: { fontSize: typography.bodyMd, color: colors.textMuted },
   link: {

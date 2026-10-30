@@ -322,18 +322,18 @@ erDiagram
 
 #### 1. Bảng `USERS` (Tài khoản & Phân quyền)
 
-| Tên trường      | Kiểu dữ liệu                       |  Khóa  | Ràng buộc                                             | Mô tả                  |
-| --------------- | ---------------------------------- | :----: | ----------------------------------------------------- | ---------------------- |
-| `user_id`       | BIGINT                             | **PK** | AUTO_INCREMENT                                        | Khóa chính người dùng  |
-| `full_name`     | VARCHAR(255)                       |        | NOT NULL                                              | Họ và tên              |
-| `username`      | VARCHAR(50)                        | **UQ** | NOT NULL                                              | Tên đăng nhập duy nhất |
-| `email`         | VARCHAR(255)                       | **UQ** | NOT NULL                                              | Email đăng nhập        |
-| `password_hash` | VARCHAR(255)                       |        | NOT NULL                                              | Mật khẩu đã băm        |
-| `avatar_url`    | VARCHAR(500)                       |        | NULL                                                  | Ảnh đại diện           |
-| `role`          | ENUM('STUDENT','TEACHER','ADMIN')  |        | NOT NULL DEFAULT 'STUDENT'                            | Vai trò                |
+| Tên trường      | Kiểu dữ liệu                                 |  Khóa  | Ràng buộc                                             | Mô tả                                              |
+| --------------- | -------------------------------------------- | :----: | ----------------------------------------------------- | -------------------------------------------------- |
+| `user_id`       | BIGINT                                       | **PK** | AUTO_INCREMENT                                        | Khóa chính người dùng                              |
+| `full_name`     | VARCHAR(255)                                 |        | NOT NULL                                              | Họ và tên                                          |
+| `username`      | VARCHAR(50)                                  | **UQ** | NOT NULL                                              | Tên đăng nhập duy nhất                             |
+| `email`         | VARCHAR(255)                                 | **UQ** | NOT NULL                                              | Email đăng nhập                                    |
+| `password_hash` | VARCHAR(255)                                 |        | NOT NULL                                              | Mật khẩu đã băm                                    |
+| `avatar_url`    | VARCHAR(500)                                 |        | NULL                                                  | Ảnh đại diện                                       |
+| `role`          | ENUM('STUDENT','TEACHER','ADMIN')            |        | NOT NULL DEFAULT 'STUDENT'                            | Vai trò                                            |
 | `status`        | ENUM('PENDING','ACTIVE','LOCKED','INACTIVE') |        | NOT NULL DEFAULT 'PENDING'                            | Trạng thái (PENDING→ACTIVE sau khi xác thực email) |
-| `created_at`    | DATETIME                           |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo          |
-| `updated_at`    | DATETIME                           |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật     |
+| `created_at`    | DATETIME                                     |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo                                      |
+| `updated_at`    | DATETIME                                     |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật                                 |
 
 > **Ghi chú trạng thái tài khoản:** Tài khoản mới tạo (Student đăng ký, hoặc Teacher do Admin cấp) có `status = PENDING`; sau khi người dùng xác thực email (liên kết kích hoạt) mới chuyển `ACTIVE`. `LOCKED` = bị khóa, `INACTIVE` = tự ngưng/vô hiệu.
 
@@ -471,25 +471,25 @@ erDiagram
 
 #### 11. Bảng `MINIGAME_QUESTIONS` (Câu hỏi minigame — trắc nghiệm & ghép từ)
 
-| Tên trường       | Kiểu dữ liệu                 |  Khóa  | Ràng buộc                                             | Mô tả                 |
-| ---------------- | ---------------------------- | :----: | ----------------------------------------------------- | --------------------- |
-| `question_id`    | BIGINT                       | **PK** | AUTO_INCREMENT                                        | Khóa chính            |
-| `minigame_id`    | BIGINT                       | **FK** | NOT NULL                                              | Minigame chứa câu hỏi |
-| `vocab_id`       | BIGINT                       | **FK** | NULL                                                  | Từ vựng gốc nếu có    |
-| `question_text`  | TEXT                         |        | NOT NULL                                              | Nội dung câu hỏi      |
-| `question_type`  | ENUM('MULTIPLE_CHOICE','MATCHING') |        | NOT NULL DEFAULT 'MULTIPLE_CHOICE'                   | Loại câu hỏi (trắc nghiệm / ghép từ) |
-| `payload`        | JSON                         |        | NULL                                                  | Dữ liệu câu hỏi (cặp ghép) — dùng khi `MATCHING` |
-| `option_a`       | VARCHAR(500)                 |        | NULL                                                  | Đáp án A (chỉ dùng khi `MULTIPLE_CHOICE`) |
-| `option_b`       | VARCHAR(500)                 |        | NULL                                                  | Đáp án B (chỉ dùng khi `MULTIPLE_CHOICE`) |
-| `option_c`       | VARCHAR(500)                 |        | NULL                                                  | Đáp án C (chỉ dùng khi `MULTIPLE_CHOICE`) |
-| `option_d`       | VARCHAR(500)                 |        | NULL                                                  | Đáp án D (chỉ dùng khi `MULTIPLE_CHOICE`) |
-| `correct_option` | ENUM('A','B','C','D')        |        | NULL                                                  | Đáp án đúng (chỉ dùng khi `MULTIPLE_CHOICE`) |
-| `explanation`    | TEXT                         |        | NULL                                                  | Giải thích đáp án     |
-| `difficulty`     | ENUM('EASY','MEDIUM','HARD') |        | DEFAULT 'MEDIUM'                                      | Độ khó                |
-| `question_order` | INT                          |        | NOT NULL DEFAULT 1                                    | Thứ tự câu hỏi        |
-| `is_active`      | BOOLEAN                      |        | NOT NULL DEFAULT TRUE                                 | Câu hỏi còn kích hoạt |
-| `created_at`     | DATETIME                     |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo         |
-| `updated_at`     | DATETIME                     |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật    |
+| Tên trường       | Kiểu dữ liệu                       |  Khóa  | Ràng buộc                                             | Mô tả                                            |
+| ---------------- | ---------------------------------- | :----: | ----------------------------------------------------- | ------------------------------------------------ |
+| `question_id`    | BIGINT                             | **PK** | AUTO_INCREMENT                                        | Khóa chính                                       |
+| `minigame_id`    | BIGINT                             | **FK** | NOT NULL                                              | Minigame chứa câu hỏi                            |
+| `vocab_id`       | BIGINT                             | **FK** | NULL                                                  | Từ vựng gốc nếu có                               |
+| `question_text`  | TEXT                               |        | NOT NULL                                              | Nội dung câu hỏi                                 |
+| `question_type`  | ENUM('MULTIPLE_CHOICE','MATCHING') |        | NOT NULL DEFAULT 'MULTIPLE_CHOICE'                    | Loại câu hỏi (trắc nghiệm / ghép từ)             |
+| `payload`        | JSON                               |        | NULL                                                  | Dữ liệu câu hỏi (cặp ghép) — dùng khi `MATCHING` |
+| `option_a`       | VARCHAR(500)                       |        | NULL                                                  | Đáp án A (chỉ dùng khi `MULTIPLE_CHOICE`)        |
+| `option_b`       | VARCHAR(500)                       |        | NULL                                                  | Đáp án B (chỉ dùng khi `MULTIPLE_CHOICE`)        |
+| `option_c`       | VARCHAR(500)                       |        | NULL                                                  | Đáp án C (chỉ dùng khi `MULTIPLE_CHOICE`)        |
+| `option_d`       | VARCHAR(500)                       |        | NULL                                                  | Đáp án D (chỉ dùng khi `MULTIPLE_CHOICE`)        |
+| `correct_option` | ENUM('A','B','C','D')              |        | NULL                                                  | Đáp án đúng (chỉ dùng khi `MULTIPLE_CHOICE`)     |
+| `explanation`    | TEXT                               |        | NULL                                                  | Giải thích đáp án                                |
+| `difficulty`     | ENUM('EASY','MEDIUM','HARD')       |        | DEFAULT 'MEDIUM'                                      | Độ khó                                           |
+| `question_order` | INT                                |        | NOT NULL DEFAULT 1                                    | Thứ tự câu hỏi                                   |
+| `is_active`      | BOOLEAN                            |        | NOT NULL DEFAULT TRUE                                 | Câu hỏi còn kích hoạt                            |
+| `created_at`     | DATETIME                           |        | DEFAULT CURRENT_TIMESTAMP                             | Thời điểm tạo                                    |
+| `updated_at`     | DATETIME                           |        | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Thời điểm cập nhật                               |
 
 > **Ghi chú:** `MULTIPLE_CHOICE` dùng cột `option_a..option_d` + `correct_option`; `MATCHING` (ghép từ) dùng cột `payload` (JSON) chứa danh sách cặp ghép, ví dụ `[{"left":"apple","right":"quả táo"}]`. Hai loại dùng chung bảng, không cần tách bảng mới.
 

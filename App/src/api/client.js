@@ -1,4 +1,5 @@
 import { API_BASE_URL, API_TIMEOUT_MS } from "../constants/config";
+import { getAccessToken } from "./token";
 
 /** Loi HTTP chuan hoa, co kem status + body de UI xu ly. */
 export class ApiError extends Error {
@@ -46,12 +47,15 @@ export async function request(path, options = {}) {
   signal?.addEventListener("abort", onAbort);
 
   try {
+    const accessToken = getAccessToken();
+
     const response = await fetch(url, {
       method,
       signal: controller.signal,
       headers: {
         Accept: "application/json",
         ...(body !== undefined ? { "Content-Type": "application/json" } : null),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : null),
         ...headers,
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -87,4 +91,15 @@ function safeJsonParse(text) {
   } catch {
     return text;
   }
+}
+
+/**
+ * Lay phan `data` tu envelope chuan `{ success, data, message }`.
+ * @param {any} payload
+ * @returns {any}
+ */
+export function unwrap(payload) {
+  return payload && typeof payload === "object" && "data" in payload
+    ? payload.data
+    : payload;
 }

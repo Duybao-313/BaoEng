@@ -18,14 +18,12 @@ export function isNotEmpty(value) {
 }
 
 /**
- * Validate form dang nhap (chi dung username, khong dung email).
- * @param {{ username?: string, password?: string }} values
- * @returns {Record<string, string>} map field -> thong bao loi (rong neu hop le)
+ * Validate truong username (dung chung cho ca dang nhap va dang ky).
+ * @param {Record<string, string>} errors
+ * @param {string|undefined} value
  */
-export function validateSignIn(values = {}) {
-  /** @type {Record<string, string>} */
-  const errors = {};
-  const username = (values.username ?? "").trim();
+function addUsernameError(errors, value) {
+  const username = (value ?? "").trim();
 
   if (!isNotEmpty(username)) {
     errors.username = "Vui lòng nhập tên đăng nhập.";
@@ -34,6 +32,18 @@ export function validateSignIn(values = {}) {
   } else if (username.length > 50) {
     errors.username = "Tên đăng nhập tối đa 50 ký tự.";
   }
+}
+
+/**
+ * Validate form dang nhap (chi dung username, khong dung email).
+ * @param {{ username?: string, password?: string }} values
+ * @returns {Record<string, string>} map field -> thong bao loi (rong neu hop le)
+ */
+export function validateSignIn(values = {}) {
+  /** @type {Record<string, string>} */
+  const errors = {};
+
+  addUsernameError(errors, values.username);
 
   if (!isNotEmpty(values.password ?? "")) {
     errors.password = "Vui lòng nhập mật khẩu.";
@@ -46,15 +56,17 @@ export function validateSignIn(values = {}) {
 
 /**
  * Validate form dang ky.
- * @param {{ name?: string, email?: string, password?: string }} values
+ * @param {{ username?: string, fullName?: string, email?: string, password?: string }} values
  * @returns {Record<string, string>}
  */
 export function validateSignUp(values = {}) {
   /** @type {Record<string, string>} */
   const errors = {};
 
-  if (!isNotEmpty(values.name ?? "")) {
-    errors.name = "Vui lòng nhập họ tên.";
+  addUsernameError(errors, values.username);
+
+  if (!isNotEmpty(values.fullName ?? "")) {
+    errors.fullName = "Vui lòng nhập họ tên.";
   }
 
   if (!isEmail(values.email ?? "")) {

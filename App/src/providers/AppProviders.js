@@ -1,5 +1,7 @@
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { AuthProvider } from "../store/auth";
+
 /**
  * Gom tat ca Provider toan cuc vao mot cho.
  *
@@ -15,5 +17,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
  * @param {{ children: import('react').ReactNode }} props
  */
 export function AppProviders({ children }) {
-  return <SafeAreaProvider>{children}</SafeAreaProvider>;
+  return (
+    <SafeAreaProvider>
+      <AuthProvider>{children}</AuthProvider>
+    </SafeAreaProvider>
+  );
 }

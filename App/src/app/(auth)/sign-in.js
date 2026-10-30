@@ -41,7 +41,7 @@ function comingSoon(feature) {
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { values, errors, formError, submitting, setField, submit } =
+  const { values, errors, formError, submitting, setField, submit, fillDemo } =
     useSignIn();
 
   const handleSubmit = async () => {
@@ -83,6 +83,14 @@ export default function SignInScreen() {
         {/* Loi o cap form */}
         <Alert title="Đăng nhập không thành công" message={formError} />
 
+        {/* Dien nhanh du lieu mau tu Postman */}
+        <Button
+          label="Điền nhanh dữ liệu mẫu"
+          variant="outline"
+          icon="bolt"
+          onPress={fillDemo}
+        />
+
         {/* Form */}
         <Card>
           <Input
@@ -122,7 +130,7 @@ export default function SignInScreen() {
             <Pressable
               accessibilityRole="button"
               hitSlop={8}
-              onPress={() => comingSoon("Chức năng quên mật khẩu")}
+              onPress={() => router.push("/(auth)/forgot-password")}
             >
               <Text style={styles.link}>Quên mật khẩu?</Text>
             </Pressable>

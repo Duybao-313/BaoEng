@@ -16,6 +16,12 @@ export function toAuthMessage(error) {
     if (code === "ACCOUNT_LOCKED") {
       return "Tài khoản đã bị khóa. Vui lòng liên hệ bộ phận hỗ trợ BaoEng.";
     }
+    if (code === "EMAIL_ALREADY_EXISTS") {
+      return "Email này đã được sử dụng. Vui lòng dùng email khác.";
+    }
+    if (code === "USERNAME_ALREADY_EXISTS") {
+      return "Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.";
+    }
     if (error.status === 401 || error.status === 403) {
       return "Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.";
     }

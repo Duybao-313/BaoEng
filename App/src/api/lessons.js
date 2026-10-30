@@ -1,23 +1,34 @@
-import { request } from "./client";
+import { request, unwrap } from "./client";
 import { ENDPOINTS } from "./endpoints";
 
-/** @param {{ page?: number, limit?: number, level?: string }} [params] */
-export function listLessons(params = {}) {
-  const query = new URLSearchParams(
-    Object.entries(params).filter(([, value]) => value !== undefined),
-  ).toString();
-  return request(`${ENDPOINTS.lessons.list}${query ? `?${query}` : ""}`);
+/** @param {string | number} id */
+export async function getLesson(id) {
+  return unwrap(await request(ENDPOINTS.lessons.detail(id)));
 }
 
 /** @param {string | number} id */
-export function getLesson(id) {
-  return request(ENDPOINTS.lessons.detail(id));
+export async function getLessonMaterials(id) {
+  return unwrap(await request(ENDPOINTS.lessons.materials(id)));
 }
 
-/** @param {string | number} id @param {{ score: number }} payload */
-export function completeLesson(id, payload) {
-  return request(ENDPOINTS.lessons.complete(id), {
-    method: "POST",
-    body: payload,
-  });
+/**
+ * Danh sach tu vung cua bai hoc.
+ * @param {string | number} id
+ * @param {{ page?: number, size?: number, q?: string }} [params]
+ */
+export async function getLessonVocab(id, params = {}) {
+  const query = new URLSearchParams(
+    Object.entries(params).filter(([, value]) => value !== undefined),
+  ).toString();
+
+  return unwrap(
+    await request(
+      `${ENDPOINTS.lessons.vocab(id)}${query ? `?${query}` : ""}`,
+    ),
+  );
+}
+
+/** @param {string | number} id */
+export async function listLessonMinigames(id) {
+  return unwrap(await request(ENDPOINTS.lessons.minigames(id)));
 }
