@@ -14,19 +14,61 @@ import { clearAccessToken, getAccessToken, setAccessToken } from "../api/token";
 
 const AuthContext = createContext(null);
 
+const USER_STORAGE_KEY = "baoeng.user";
+
+/** localStorage tren web; null tren native hoac khi bi chan (private mode). */
+function getStorage() {
+  try {
+    return typeof globalThis !== "undefined" && globalThis.localStorage
+      ? globalThis.localStorage
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** @returns {object | null} */
+function readStoredUser() {
+  const raw = getStorage()?.getItem(USER_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/** @param {object | null} user */
+function storeUser(user) {
+  const storage = getStorage();
+  if (!storage) return;
+  try {
+    if (user) storage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    else storage.removeItem(USER_STORAGE_KEY);
+  } catch {
+    // Bo qua loi quota/private mode.
+  }
+}
+
 /**
  * Quan ly phien dang nhap (session) cua nguoi hoc.
  * `signIn` luu accessToken vao bo nho de `client.js` tu dong gan header.
+ * Tren web, token + user duoc persist nen refresh trang van giu dang nhap.
  *
  * @param {{ children: import('react').ReactNode }} props
  */
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null);
+  // Khoi tao tu token da persist (neu co) de refresh trang khong mat phien.
+  const [session, setSession] = useState(() => {
+    const token = getAccessToken();
+    return token ? { accessToken: token, user: readStoredUser() } : null;
+  });
 
   const signIn = useCallback(async ({ username, password }) => {
     const data = await apiLogin({ username, password });
     const next = { accessToken: data.accessToken, user: data.user };
     setAccessToken(data.accessToken);
+    storeUser(data.user);
     setSession(next);
     return next;
   }, []);
@@ -40,6 +82,7 @@ export function AuthProvider({ children }) {
       }
     }
     clearAccessToken();
+    storeUser(null);
     setSession(null);
   }, []);
 

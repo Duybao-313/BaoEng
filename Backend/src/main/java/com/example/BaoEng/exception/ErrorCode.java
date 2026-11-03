@@ -23,6 +23,8 @@ public enum ErrorCode {
     USERNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "Username already exists"),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "User not found"),
     TOPIC_NOT_FOUND(HttpStatus.NOT_FOUND, "Topic not found"),
+    ALREADY_ENROLLED(HttpStatus.CONFLICT, "Already enrolled in this topic"),
+    ENROLLMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "Enrollment not found"),
     LESSON_NOT_FOUND(HttpStatus.NOT_FOUND, "Lesson not found"),
     MATERIAL_NOT_FOUND(HttpStatus.NOT_FOUND, "Material not found"),
     MINIGAME_NOT_FOUND(HttpStatus.NOT_FOUND, "Minigame not found"),

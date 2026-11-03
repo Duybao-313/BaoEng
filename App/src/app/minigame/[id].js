@@ -147,11 +147,11 @@ export default function MinigameScreen() {
           {question ? (
             <View style={styles.questionCard}>
               <Text style={styles.questionText}>
-                {question.payload?.questionText ?? "Câu hỏi"}
+                {question.questionText ?? question.payload?.questionText ?? "Câu hỏi"}
               </Text>
 
               <View style={styles.options}>
-                {(question.payload?.options ?? []).map((option, index) => {
+                {(question.options ?? question.payload?.options ?? []).map((option, index) => {
                   const selected =
                     answers[question.questionId] === option.key;
                   return (

@@ -1,22 +1,28 @@
 package com.example.BaoEng.service;
 
+import com.example.BaoEng.dto.EnrollmentResponse;
 import com.example.BaoEng.dto.TopicCreateRequest;
 import com.example.BaoEng.dto.TopicResponse;
 import com.example.BaoEng.dto.TopicUpdateRequest;
+import com.example.BaoEng.entity.Enrollment;
+import com.example.BaoEng.entity.Student;
 import com.example.BaoEng.entity.Teacher;
 import com.example.BaoEng.entity.Topic;
 import com.example.BaoEng.entity.User;
 import com.example.BaoEng.enums.ContentStatus;
+import com.example.BaoEng.enums.EnrollmentStatus;
 import com.example.BaoEng.enums.Level;
 import com.example.BaoEng.enums.Role;
 import com.example.BaoEng.exception.BusinessException;
 import com.example.BaoEng.exception.ErrorCode;
+import com.example.BaoEng.repository.EnrollmentRepository;
 import com.example.BaoEng.repository.LessonRepository;
 import com.example.BaoEng.repository.TeacherRepository;
 import com.example.BaoEng.repository.TopicRepository;
 import com.example.BaoEng.repository.UserRepository;
 import com.example.BaoEng.security.UserPrincipal;
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,18 +37,24 @@ public class TopicService {
     private final TeacherService teacherService;
     private final TeacherRepository teacherRepository;
     private final UserRepository userRepository;
+    private final StudentService studentService;
+    private final EnrollmentRepository enrollmentRepository;
 
     public TopicService(
             TopicRepository topicRepository,
             LessonRepository lessonRepository,
             TeacherService teacherService,
             TeacherRepository teacherRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            StudentService studentService,
+            EnrollmentRepository enrollmentRepository) {
         this.topicRepository = topicRepository;
         this.lessonRepository = lessonRepository;
         this.teacherService = teacherService;
         this.teacherRepository = teacherRepository;
         this.userRepository = userRepository;
+        this.studentService = studentService;
+        this.enrollmentRepository = enrollmentRepository;
     }
 
     public List<TopicResponse> list(UserPrincipal principal) {
@@ -97,6 +109,68 @@ public class TopicService {
     public void delete(UserPrincipal principal, Long topicId) {
         Topic topic = findOwnedTopic(principal, topicId);
         topicRepository.delete(topic);
+    }
+
+    /**
+     * Sinh viên đăng ký tham gia chủ đề.
+     * Tạo mới bản ghi enrollment, hoặc tái kích hoạt nếu trước đó đã DROPPED.
+     */
+    @Transactional
+    public EnrollmentResponse enroll(UserPrincipal principal, Long topicId) {
+        topicRepository.findById(topicId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TOPIC_NOT_FOUND));
+
+        Student student = studentService.getOrCreateStudent(principal.getUserId());
+
+        try {
+            Enrollment existing = enrollmentRepository
+                    .findByStudentIdAndTopicId(student.getStudentId(), topicId)
+                    .orElse(null);
+
+            if (existing == null) {
+                Enrollment enrollment = Enrollment.builder()
+                        .studentId(student.getStudentId())
+                        .topicId(topicId)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+                return EnrollmentResponse.from(enrollmentRepository.save(enrollment));
+            }
+
+            if (existing.getStatus() == EnrollmentStatus.DROPPED) {
+                existing.setStatus(EnrollmentStatus.ENROLLED);
+                return EnrollmentResponse.from(enrollmentRepository.save(existing));
+            }
+
+            throw new BusinessException(ErrorCode.ALREADY_ENROLLED);
+        } catch (DataIntegrityViolationException e) {
+            // Race: hai request enroll chạy song song cùng chèn một bản ghi
+            // (UNIQUE student_id+topic_id) — coi như đã tham gia.
+            throw new BusinessException(ErrorCode.ALREADY_ENROLLED);
+        }
+    }
+
+    /**
+     * Sinh viên rời chủ đề: chuyển trạng thái enrollment sang DROPPED
+     * (giữ nguyên lịch sử tiến độ).
+     */
+    @Transactional
+    public void unenroll(UserPrincipal principal, Long topicId) {
+        topicRepository.findById(topicId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TOPIC_NOT_FOUND));
+
+        Student student = studentService.getOrCreateStudent(principal.getUserId());
+
+        Enrollment enrollment = enrollmentRepository
+                .findByStudentIdAndTopicId(student.getStudentId(), topicId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ENROLLMENT_NOT_FOUND));
+
+        // Da roi chu de truoc do (hoac chua co ban ghi) => khong con dang tham gia.
+        if (enrollment.getStatus() == EnrollmentStatus.DROPPED) {
+            throw new BusinessException(ErrorCode.ENROLLMENT_NOT_FOUND);
+        }
+
+        enrollment.setStatus(EnrollmentStatus.DROPPED);
+        enrollmentRepository.save(enrollment);
     }
 
     public Topic findOwnedTopic(UserPrincipal principal, Long topicId) {

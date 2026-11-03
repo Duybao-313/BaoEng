@@ -2,6 +2,7 @@ package com.example.BaoEng.controller;
 
 import com.example.BaoEng.common.ApiResponse;
 import com.example.BaoEng.common.AppConstants;
+import com.example.BaoEng.dto.EnrollmentResponse;
 import com.example.BaoEng.dto.TopicCreateRequest;
 import com.example.BaoEng.dto.TopicResponse;
 import com.example.BaoEng.dto.TopicUpdateRequest;
@@ -42,6 +43,23 @@ public class TopicController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long topicId) {
         return ApiResponse.ok(topicService.get(principal, topicId), "OK");
+    }
+
+    @PostMapping("/{topicId}/enroll")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ApiResponse<EnrollmentResponse> enroll(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long topicId) {
+        return ApiResponse.ok(topicService.enroll(principal, topicId), "Đã đăng ký tham gia chủ đề.");
+    }
+
+    @DeleteMapping("/{topicId}/enroll")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ApiResponse<Void> unenroll(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long topicId) {
+        topicService.unenroll(principal, topicId);
+        return ApiResponse.ok(null, "Đã rời chủ đề.");
     }
 
     @PostMapping

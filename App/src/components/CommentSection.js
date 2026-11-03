@@ -19,7 +19,8 @@ export function CommentSection({ targetType, targetId }) {
     { deps: [targetType, targetId] },
   );
 
-  const comments = data?.content ?? [];
+  // Backend co the tra ve mang truc tiep hoac dang phan trang `{ content }`.
+  const comments = Array.isArray(data) ? data : data?.content ?? [];
 
   const handleSend = async () => {
     const trimmed = content.trim();
@@ -92,16 +93,16 @@ function CommentItem({ comment }) {
     <View style={styles.comment}>
       <View style={styles.commentHead}>
         <Text style={styles.author} numberOfLines={1}>
-          {comment.author?.fullName ?? "Người dùng"}
+          {comment.author?.fullName ?? comment.authorName ?? "Người dùng"}
         </Text>
         <Text style={styles.time}>{formatTime(comment.createdAt)}</Text>
       </View>
       <Text style={styles.commentContent}>{comment.content}</Text>
 
-      {(comment.replies ?? []).map((reply) => (
-        <View key={reply.replyId} style={styles.reply}>
+      {(comment.replies ?? []).map((reply, index) => (
+        <View key={reply.replyId ?? reply.commentId ?? index} style={styles.reply}>
           <Text style={styles.replyAuthor} numberOfLines={1}>
-            {reply.author?.fullName ?? "Giáo viên"}
+            {reply.author?.fullName ?? reply.authorName ?? "Giáo viên"}
           </Text>
           <Text style={styles.commentContent}>{reply.content}</Text>
         </View>

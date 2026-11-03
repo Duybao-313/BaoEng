@@ -7,6 +7,9 @@
 # MySQL data volume (do not commit database files)
 Backend/mysql-data/
 
+# Runtime uploads (teacher-uploaded materials)
+Backend/uploads/
+
 # IDE
 .idea/
 *.iml

@@ -40,7 +40,8 @@ export default function HomeScreen() {
     { deps: [level, query] },
   );
 
-  const topics = data?.content ?? [];
+  // Backend `GET /topics` tra ve mang truc tiep (khong phai cau truc phan trang `{ content }`).
+  const topics = Array.isArray(data) ? data : data?.content ?? [];
 
   return (
     <Screen padded={false}>

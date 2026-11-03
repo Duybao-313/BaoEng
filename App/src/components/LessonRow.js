@@ -9,6 +9,9 @@ import { Icon } from "./ui";
  */
 export function LessonRow({ index, lesson, onPress }) {
   const completed = Boolean(lesson.completed);
+  const hasMinigame = (lesson.minigames ?? []).some(
+    (minigame) => minigame.status === "PUBLISHED",
+  );
 
   return (
     <Pressable
@@ -27,6 +30,12 @@ export function LessonRow({ index, lesson, onPress }) {
       <Text style={styles.title} numberOfLines={2}>
         {lesson.title}
       </Text>
+
+      {hasMinigame ? (
+        <View style={styles.minigameChip}>
+          <Icon name="bolt" size={14} color={colors.primary} />
+        </View>
+      ) : null}
 
       <Icon name="chevron-right" size={20} color={colors.textMuted} />
     </Pressable>
@@ -59,5 +68,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.bodyLg,
     color: colors.text,
+  },
+  minigameChip: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primaryContainer,
   },
 });

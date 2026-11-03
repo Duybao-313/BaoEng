@@ -22,16 +22,24 @@ export default function TopicDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
 
-  const [enrolled, setEnrolled] = useState(false);
+  const [justEnrolled, setJustEnrolled] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState(null);
 
   const { data, loading, error, run } = useAsync(async () => {
-    const [topic, lessons, progress] = await Promise.all([
+    const [topic, lessons] = await Promise.all([
       getTopic(id),
       listTopicLessons(id),
-      getTopicProgress(id),
     ]);
+
+    // Backend chua implement GET /topics/{id}/progress — bo qua de khong chan man hinh.
+    let progress = null;
+    try {
+      progress = await getTopicProgress(id);
+    } catch {
+      progress = null;
+    }
+
     const lessonList = Array.isArray(lessons)
       ? lessons
       : lessons?.content ?? [];
@@ -42,16 +50,20 @@ export default function TopicDetailScreen() {
   const lessons = data?.lessons ?? [];
   const progress = data?.progress ?? topic;
 
+  // `enrolled` duoc suy ra tu du lieu server (progress.enrolled), ket hop
+  // trang thai optimistic sau khi nguoi dung bam "Tham gia".
+  const enrolled = Boolean(progress?.enrolled) || justEnrolled;
+
   const handleEnroll = async () => {
     setEnrolling(true);
     setEnrollError(null);
     try {
       await enrollTopic(id);
-      setEnrolled(true);
+      setJustEnrolled(true);
       run().catch(() => {});
     } catch (err) {
       if (err?.body?.error?.code === "ALREADY_ENROLLED") {
-        setEnrolled(true);
+        setJustEnrolled(true);
       } else {
         setEnrollError(err?.message ?? "Không thể tham gia chủ đề. Vui lòng thử lại.");
       }
