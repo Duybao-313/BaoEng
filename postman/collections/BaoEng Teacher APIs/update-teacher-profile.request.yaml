@@ -1,0 +1,11 @@
+$kind: http-request
+description: "Cập nhật hồ sơ giáo viên (cần token TEACHER)."
+url: "{{baseURL}}/api/v1/teachers/me"
+method: PUT
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+body:
+  type: json
+  content: '{"teacherCode":"GV-1001","phone":"0903102892","academicTitle":"Thạc sĩ Ngôn ngữ Anh","highestEducation":"Master","graduateSchool":"ULIS","specialization":"Tiếng Anh Công nghệ","teachingExperienceYears":8,"bio":"Giảng viên tiếng Anh công nghệ"}'
+order: 1200

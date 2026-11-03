@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Đăng nhập bằng tài khoản TEACHER (teacher1/Teacher@123). Copy accessToken trong response vào biến teacher_token của collection trước khi gọi các API khác."
+url: "{{baseURL}}/api/v1/auth/login"
+method: POST
+body:
+  type: json
+  content: '{"username":"teacher1","password":"Teacher@123"}'
+order: 1000

@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Xem hồ sơ giáo viên của người đang đăng nhập (cần token TEACHER). Nếu chưa có hồ sơ, backend tự tạo row teachers."
+url: "{{baseURL}}/api/v1/teachers/me"
+method: GET
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 1100

@@ -1,0 +1,11 @@
+$kind: http-request
+description: "Tạo bài học trong chủ đề (chỉ TEACHER)."
+url: "{{baseURL}}/api/v1/topics/{{topicId}}/lessons"
+method: POST
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+body:
+  type: json
+  content: '{"title":"Bài 1: Chào hỏi (Greetings)","orderIndex":1,"completionThreshold":80.0}'
+order: 3200

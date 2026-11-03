@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Xuất bản minigame (chỉ TEACHER). Thay {{minigameId}} bằng id thực tế."
+url: "{{baseURL}}/api/v1/minigames/{{minigameId}}/publish"
+method: POST
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 6200

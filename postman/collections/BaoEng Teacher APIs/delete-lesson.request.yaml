@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Xóa bài học (chỉ TEACHER)."
+url: "{{baseURL}}/api/v1/lessons/{{lessonId}}"
+method: DELETE
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 3400

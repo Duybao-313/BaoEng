@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Danh sách bài học theo chủ đề. Thay {{topicId}} bằng id thực tế."
+url: "{{baseURL}}/api/v1/topics/{{topicId}}/lessons"
+method: GET
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 3000

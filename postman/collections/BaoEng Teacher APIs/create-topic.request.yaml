@@ -1,0 +1,11 @@
+$kind: http-request
+description: "Tạo chủ đề mới (chỉ TEACHER). status mặc định DRAFT."
+url: "{{baseURL}}/api/v1/topics"
+method: POST
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+body:
+  type: json
+  content: '{"title":"Tiếng Anh giao tiếp cơ bản","description":"Khóa học giao tiếp cho người mới bắt đầu","level":"BEGINNER"}'
+order: 2200

@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Danh sách bình luận (kèm replies)."
+url: "{{baseURL}}/api/v1/comments"
+method: GET
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 7000

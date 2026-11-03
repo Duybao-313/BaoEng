@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Danh sách từ vựng của bài học. Thay {{lessonId}} bằng id thực tế."
+url: "{{baseURL}}/api/v1/lessons/{{lessonId}}/vocab"
+method: GET
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 5000

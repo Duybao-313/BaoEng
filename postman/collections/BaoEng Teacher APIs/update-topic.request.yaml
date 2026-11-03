@@ -1,0 +1,11 @@
+$kind: http-request
+description: "Cập nhật chủ đề (chỉ TEACHER, chủ đề của chính mình). Có thể đổi level hoặc status (DRAFT/PUBLISHED)."
+url: "{{baseURL}}/api/v1/topics/{{topicId}}"
+method: PUT
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+body:
+  type: json
+  content: '{"title":"Tiếng Anh giao tiếp cơ bản (cập nhật)","status":"PUBLISHED"}'
+order: 2300

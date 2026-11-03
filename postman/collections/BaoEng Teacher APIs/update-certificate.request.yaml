@@ -1,0 +1,11 @@
+$kind: http-request
+description: "Cập nhật chứng chỉ (chỉ TEACHER). Thay {{certificateId}} bằng id thực tế."
+url: "{{baseURL}}/api/v1/teachers/me/certificates/{{certificateId}}"
+method: PUT
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+body:
+  type: json
+  content: '{"name":"IELTS Academic","score":"9.0","issuingBody":"IDP Education"}'
+order: 9200

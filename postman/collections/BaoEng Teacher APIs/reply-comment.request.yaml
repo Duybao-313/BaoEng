@@ -1,0 +1,11 @@
+$kind: http-request
+description: "Phản hồi bình luận của học viên (chỉ TEACHER). Thay {{commentId}} bằng id bình luận gốc."
+url: "{{baseURL}}/api/v1/comments/{{commentId}}/replies"
+method: POST
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+body:
+  type: json
+  content: '{"content":"Cảm ơn em đã đặt câu hỏi, thầy sẽ giải thích chi tiết trong buổi học tới."}'
+order: 7100

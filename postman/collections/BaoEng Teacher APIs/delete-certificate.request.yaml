@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Xóa chứng chỉ (chỉ TEACHER). Thay {{certificateId}} bằng id thực tế."
+url: "{{baseURL}}/api/v1/teachers/me/certificates/{{certificateId}}"
+method: DELETE
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 9300

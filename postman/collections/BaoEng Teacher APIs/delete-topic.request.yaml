@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Xóa chủ đề (chỉ TEACHER, chủ đề của chính mình). Cascade xóa bài học bên trong."
+url: "{{baseURL}}/api/v1/topics/{{topicId}}"
+method: DELETE
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 2400

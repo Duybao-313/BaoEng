@@ -1,0 +1,11 @@
+$kind: http-request
+description: "Thêm chứng chỉ (chỉ TEACHER). status mặc định PENDING, chờ Admin xác minh."
+url: "{{baseURL}}/api/v1/teachers/me/certificates"
+method: POST
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+body:
+  type: json
+  content: '{"name":"IELTS Academic","score":"8.5","issuingBody":"IDP Education","imageUrl":"https://example.com/certs/ielts.jpg"}'
+order: 9100

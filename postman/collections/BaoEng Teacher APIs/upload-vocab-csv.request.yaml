@@ -1,0 +1,14 @@
+$kind: http-request
+description: "Upload CSV từ vựng (chỉ TEACHER). Header bắt buộc: word, meaning; tùy chọn: pronunciation, example. Sau khi import, backend tự sinh minigame DRAFT."
+url: "{{baseURL}}/api/v1/lessons/{{lessonId}}/vocab/csv"
+method: POST
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+body:
+  type: form-data
+  formdata:
+    - key: file
+      type: file
+      src: ""
+order: 5100

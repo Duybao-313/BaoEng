@@ -1,0 +1,17 @@
+$kind: http-request
+description: "Upload học liệu (chỉ TEACHER). Chọn file trong tab form-data; trường type nhận VIDEO | PDF | WORD."
+url: "{{baseURL}}/api/v1/lessons/{{lessonId}}/materials"
+method: POST
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+body:
+  type: form-data
+  formdata:
+    - key: file
+      type: file
+      src: ""
+    - key: type
+      type: text
+      value: "PDF"
+order: 4100

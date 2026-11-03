@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Danh sách chủ đề (Teacher chỉ thấy chủ đề của chính mình)."
+url: "{{baseURL}}/api/v1/topics"
+method: GET
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 2000

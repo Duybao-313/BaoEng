@@ -1,0 +1,11 @@
+$kind: http-request
+description: "Cập nhật bài học (chỉ TEACHER)."
+url: "{{baseURL}}/api/v1/lessons/{{lessonId}}"
+method: PUT
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+body:
+  type: json
+  content: '{"title":"Bài 1: Chào hỏi (đã sửa)","orderIndex":1,"completionThreshold":85.0,"status":"PUBLISHED"}'
+order: 3300

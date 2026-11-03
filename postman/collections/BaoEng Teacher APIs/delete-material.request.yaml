@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Xóa học liệu (chỉ TEACHER). Thay {{materialId}} bằng id thực tế."
+url: "{{baseURL}}/api/v1/materials/{{materialId}}"
+method: DELETE
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 4200

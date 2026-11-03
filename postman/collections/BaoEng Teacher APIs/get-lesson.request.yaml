@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Chi tiết bài học. Thay {{lessonId}} bằng id thực tế."
+url: "{{baseURL}}/api/v1/lessons/{{lessonId}}"
+method: GET
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 3100

@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Chi tiết minigame kèm câu hỏi và đáp án (Teacher xem trước thấy is_correct). Thay {{minigameId}} bằng id thực tế."
+url: "{{baseURL}}/api/v1/minigames/{{minigameId}}"
+method: GET
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 6100

@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Danh sách chứng chỉ của giáo viên (chỉ TEACHER)."
+url: "{{baseURL}}/api/v1/teachers/me/certificates"
+method: GET
+headers:
+  - key: Authorization
+    value: "Bearer {{teacher_token}}"
+order: 9000
