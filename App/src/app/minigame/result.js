@@ -1,8 +1,11 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
+import { getLesson, listTopicLessons } from "../../api";
 import { Button, Icon, Screen } from "../../components/ui";
-import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { colors, radius, shadows, spacing, themed, typography } from "../../constants/theme";
 
 export default function MinigameResultScreen() {
   const router = useRouter();
@@ -18,6 +21,35 @@ export default function MinigameResultScreen() {
   const lessonCompleted = params.lessonCompleted === "true";
   const topicProgressPercent = Number(params.topicProgressPercent ?? 0);
 
+  const [nextLesson, setNextLesson] = useState(null);
+  const [loadingNext, setLoadingNext] = useState(Boolean(lessonId));
+
+  // Xac dinh bai ke tiep trong cung chu de: bai chua hoan thanh ngay sau bai hien tai.
+  useEffect(() => {
+    if (!lessonId) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const current = await getLesson(lessonId);
+        const lessons = await listTopicLessons(current.topicId);
+        const list = (Array.isArray(lessons) ? lessons : lessons?.content ?? [])
+          .filter((item) => item.lessonId !== Number(lessonId))
+          .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+        const currentOrder = current.orderIndex ?? 0;
+        const after = list.filter((item) => (item.orderIndex ?? 0) > currentOrder);
+        const next = after.find((item) => !item.completed) ?? after[0] ?? null;
+        if (!cancelled) setNextLesson(next);
+      } catch {
+        // Khong lay duoc bai ke tiep => quay lai bai hien tai.
+      } finally {
+        if (!cancelled) setLoadingNext(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lessonId]);
+
   const handleRetry = () => {
     router.replace({
       pathname: "/minigame/[id]",
@@ -26,10 +58,11 @@ export default function MinigameResultScreen() {
   };
 
   const handleNext = () => {
-    if (lessonId) {
+    const targetId = nextLesson?.lessonId ?? lessonId;
+    if (targetId) {
       router.replace({
         pathname: "/lesson/[id]",
-        params: { id: String(lessonId) },
+        params: { id: String(targetId) },
       });
     } else {
       router.replace("/");
@@ -95,8 +128,15 @@ export default function MinigameResultScreen() {
             onPress={handleRetry}
           />
           <Button
-            label={lessonId ? "Bài tiếp theo" : "Về trang chủ"}
+            label={
+              nextLesson
+                ? "Bài tiếp theo"
+                : lessonId
+                  ? "Quay lại bài học"
+                  : "Về trang chủ"
+            }
             icon="arrow-forward"
+            loading={loadingNext}
             onPress={handleNext}
           />
         </View>
@@ -105,7 +145,7 @@ export default function MinigameResultScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   wrap: {
     flex: 1,
     alignItems: "center",
@@ -176,4 +216,4 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-});
+}));

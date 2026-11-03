@@ -1,9 +1,10 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "./Text";
 
-import { colors, radius, spacing, typography } from "../../constants/theme";
+import { radius, spacing, themed, typography } from "../../constants/theme";
 import { Icon } from "./Icon";
 
-const VARIANTS = {
+const VARIANTS = themed((colors) => ({
   error: {
     icon: "error-outline",
     iconColor: colors.danger,
@@ -18,7 +19,7 @@ const VARIANTS = {
     title: { color: colors.onSecondaryFixedVariant },
     message: { color: colors.onSecondaryFixedVariant },
   },
-};
+}));
 
 /**
  * Bang thong bao (mac dinh: loi) — dung cho thong bao o cap man hinh.
@@ -58,7 +59,7 @@ export function Alert({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   container: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -75,4 +76,4 @@ const styles = StyleSheet.create({
     color: colors.danger,
   },
   message: { fontSize: typography.bodyMd, color: colors.onErrorContainer },
-});
+}));

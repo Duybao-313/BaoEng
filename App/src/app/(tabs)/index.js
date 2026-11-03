@@ -1,18 +1,11 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import {
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import { AppHeader } from "../../components/layout/AppHeader";
 import { Icon, Screen } from "../../components/ui";
-import { colors, radius, spacing, typography } from "../../constants/theme";
+import { colors, radius, spacing, themed, typography } from "../../constants/theme";
 import {
   FeaturedTopicsSection,
   RecommendedTopicsSection,
@@ -250,7 +243,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
@@ -333,4 +326,4 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   chipLabelActive: { color: colors.onPrimary },
-});
+}));

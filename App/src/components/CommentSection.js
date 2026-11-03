@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
+import { Text } from "./ui/Text";
 
 import { createComment, listComments } from "../api";
-import { colors, radius, spacing, typography } from "../constants/theme";
+import { colors, radius, spacing, themed, typography } from "../constants/theme";
+import { translate } from "../i18n";
 import { useAsync } from "../hooks";
 import { Alert, Button, Skeleton } from "./ui";
 
@@ -44,9 +46,9 @@ export function CommentSection({ targetType, targetId }) {
 
       <View style={styles.composer}>
         <TextInput
-          accessibilityLabel="Nội dung bình luận"
+          accessibilityLabel={translate("Nội dung bình luận")}
           style={styles.input}
-          placeholder="Đặt câu hỏi cho giáo viên..."
+          placeholder={translate("Đặt câu hỏi cho giáo viên...")}
           placeholderTextColor={colors.outline}
           value={content}
           onChangeText={setContent}
@@ -124,7 +126,7 @@ function formatTime(iso) {
   });
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   wrap: { gap: spacing.md },
   heading: {
     fontSize: typography.heading,
@@ -187,4 +189,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.primaryContainer,
   },
-});
+}));

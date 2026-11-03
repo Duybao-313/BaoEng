@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "../../../components/ui/Text";
 
-import { colors, radius, shadows, spacing, typography } from "../../../constants/theme";
+import { colors, radius, shadows, spacing, themed, typography } from "../../../constants/theme";
 import { Button, Icon, ProgressBar, Skeleton } from "../../../components/ui";
 import { formatMinutes } from "../../../utils";
 
@@ -185,7 +186,7 @@ export function WeeklyPracticeChart({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   card: {
     gap: spacing.sm,
     padding: spacing.md,
@@ -275,4 +276,4 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyMd,
     color: colors.textMuted,
   },
-});
+}));

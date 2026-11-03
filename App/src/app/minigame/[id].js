@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import { getMinigame, submitMinigameAttempt } from "../../api";
 import {
@@ -11,7 +12,7 @@ import {
   Screen,
   Skeleton,
 } from "../../components/ui";
-import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { radius, shadows, spacing, themed, typography } from "../../constants/theme";
 import { formatDuration } from "../../utils";
 import { useAsync } from "../../hooks";
 
@@ -223,7 +224,7 @@ export default function MinigameScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   topBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -318,4 +319,4 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-});
+}));

@@ -1,7 +1,11 @@
-import { useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Image, Pressable, View } from "react-native";
+import { Text } from "../ui/Text";
 
-import { colors, radius, spacing, typography } from "../../constants/theme";
+import { resolveAssetUrl } from "../../api";
+import { colors, radius, spacing, themed, typography } from "../../constants/theme";
+import { useSettings } from "../../providers";
+import { useAuth } from "../../store/auth";
 import { Icon } from "../ui/Icon";
 
 const LOGO = require("../../../assets/icon.png");
@@ -17,18 +21,22 @@ const LOGO = require("../../../assets/icon.png");
  *   streakDays?: number,
  *   onPressAvatar?: () => void,
  *   onPressSearch?: () => void,
+ *   showSettings?: boolean,
  * }} props
  */
 export function AppHeader({
   title,
   showLanguage = true,
   showAvatar = true,
+  showSettings = true,
   streakDays = 0,
   onPressAvatar,
   onPressSearch,
 }) {
-  // TODO: noi vao i18n that su khi bo sung da ngon ngu.
-  const [language, setLanguage] = useState("VN");
+  const { session } = useAuth();
+  const { language, toggleLanguage, t } = useSettings();
+  const router = useRouter();
+  const avatarUri = resolveAssetUrl(session?.user?.avatarUrl);
 
   return (
     <View style={styles.header}>
@@ -74,18 +82,29 @@ export function AppHeader({
           </Pressable>
         ) : null}
 
+        {showSettings ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("Cài đặt")}
+            onPress={() => router.push("/settings")}
+            style={({ pressed }) => [styles.pill, pressed ? styles.pressed : null]}
+          >
+            <Icon name="settings" size={18} color={colors.primary} />
+          </Pressable>
+        ) : null}
+
         {showLanguage ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Đổi ngôn ngữ"
-            onPress={() => setLanguage((prev) => (prev === "VN" ? "EN" : "VN"))}
+            accessibilityLabel={t("Đổi ngôn ngữ")}
+            onPress={toggleLanguage}
             style={({ pressed }) => [
               styles.pill,
               pressed ? styles.pressed : null,
             ]}
           >
             <Icon name="language" size={18} color={colors.primary} />
-            <Text style={styles.pillLabel}>{language}</Text>
+            <Text style={styles.pillLabel}>{language === "vi" ? "VI" : "EN"}</Text>
           </Pressable>
         ) : null}
 
@@ -96,7 +115,11 @@ export function AppHeader({
             onPress={onPressAvatar}
             style={styles.avatar}
           >
-            <Icon name="person" size={18} color={colors.onPrimary} />
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+            ) : (
+              <Icon name="person" size={18} color={colors.onPrimary} />
+            )}
           </Pressable>
         ) : null}
       </View>
@@ -104,7 +127,7 @@ export function AppHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -170,5 +193,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primary,
   },
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceContainerHigh,
+  },
   pressed: { opacity: 0.8 },
-});
+}));

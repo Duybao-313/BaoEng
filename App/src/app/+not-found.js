@@ -1,7 +1,8 @@
 import { Link, Stack } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "../components/ui/Text";
 
-import { colors, radius, spacing, typography } from "../constants/theme";
+import { radius, spacing, themed, typography } from "../constants/theme";
 
 /** Man hinh 404 — Expo Router tu dong dung file nay cho moi route khong ton tai. */
 export default function NotFoundScreen() {
@@ -19,7 +20,7 @@ export default function NotFoundScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   container: {
     flex: 1,
     alignItems: "center",
@@ -48,4 +49,4 @@ const styles = StyleSheet.create({
     color: colors.surface,
     backgroundColor: colors.primary,
   },
-});
+}));

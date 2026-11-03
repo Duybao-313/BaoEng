@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "../../../components/ui/Text";
 
-import { colors, radius, shadows, spacing, typography } from "../../../constants/theme";
+import { colors, radius, shadows, spacing, themed, typography } from "../../../constants/theme";
 import { Icon, ProgressBar } from "../../../components/ui";
 
 /**
@@ -109,7 +110,7 @@ export function TopicProgressCard({ topic, onPress, onContinue }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   card: {
     gap: spacing.sm + 2,
     padding: spacing.md,
@@ -204,4 +205,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.onPrimary,
   },
-});
+}));

@@ -1,13 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Linking, Pressable, ScrollView, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import {
   getLesson,
@@ -23,7 +17,7 @@ import {
   Screen,
   Skeleton,
 } from "../../components/ui";
-import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { colors, radius, shadows, spacing, themed, typography } from "../../constants/theme";
 import { LessonVideoPlayer } from "../../features/lesson";
 import { useAsync } from "../../hooks";
 
@@ -312,7 +306,7 @@ export default function LessonDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   topBar: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
@@ -457,4 +451,4 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     color: colors.textMuted,
   },
-});
+}));

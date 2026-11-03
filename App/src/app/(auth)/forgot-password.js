@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import { forgotPassword } from "../../api";
 import { AppHeader } from "../../components/layout/AppHeader";
@@ -11,7 +12,7 @@ import {
   Input,
   Screen,
 } from "../../components/ui";
-import { colors, spacing, typography } from "../../constants/theme";
+import { spacing, themed, typography } from "../../constants/theme";
 import { isEmail } from "../../utils";
 
 export default function ForgotPasswordScreen() {
@@ -96,7 +97,7 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   content: {
     flexGrow: 1,
     width: "100%",
@@ -123,4 +124,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.primaryContainer,
   },
-});
+}));

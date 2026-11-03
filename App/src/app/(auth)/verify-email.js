@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import { verifyEmail } from "../../api";
 import { AppHeader } from "../../components/layout/AppHeader";
@@ -10,7 +11,7 @@ import {
   Screen,
   Skeleton,
 } from "../../components/ui";
-import { colors, radius, spacing, typography } from "../../constants/theme";
+import { colors, radius, spacing, themed, typography } from "../../constants/theme";
 import { useAsync } from "../../hooks";
 
 export default function VerifyEmailScreen() {
@@ -69,7 +70,7 @@ export default function VerifyEmailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   body: {
     flex: 1,
     gap: spacing.md,
@@ -103,4 +104,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: colors.textMuted,
   },
-});
+}));

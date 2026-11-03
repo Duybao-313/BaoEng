@@ -1,10 +1,11 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import { AppHeader } from "../../components/layout/AppHeader";
 import { Button, Icon, Screen } from "../../components/ui";
-import { colors, radius, spacing, typography } from "../../constants/theme";
+import { colors, radius, spacing, themed, typography } from "../../constants/theme";
 
 const SLIDES = [
   {
@@ -79,7 +80,7 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   body: {
     flex: 1,
     padding: spacing.lg,
@@ -137,4 +138,4 @@ const styles = StyleSheet.create({
     width: 24,
     backgroundColor: colors.primary,
   },
-});
+}));

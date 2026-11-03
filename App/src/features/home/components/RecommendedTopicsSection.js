@@ -1,21 +1,10 @@
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import { Text } from "../../../components/ui/Text";
 
 import { Button, Skeleton } from "../../../components/ui";
 import { LevelChip } from "../../../components/ui/LevelChip";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
-import {
-  colors,
-  radius,
-  shadows,
-  spacing,
-  typography,
-} from "../../../constants/theme";
+import { radius, shadows, spacing, themed, typography } from "../../../constants/theme";
 
 /**
  * Khoi "Chu de de xuat cho ban": danh sach ngang cac card gon.
@@ -103,7 +92,7 @@ export function RecommendedTopicsSection({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   section: { gap: spacing.sm },
   title: {
     fontSize: typography.heading,
@@ -135,4 +124,4 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   pressed: { opacity: 0.9 },
-});
+}));

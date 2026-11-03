@@ -1,15 +1,10 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
+import { ActivityIndicator, Pressable } from "react-native";
+import { Text } from "./Text";
 
-import {
-  colors,
-  radius,
-  shadows,
-  spacing,
-  typography,
-} from "../../constants/theme";
+import { radius, shadows, spacing, themed, typography } from "../../constants/theme";
 import { Icon } from "./Icon";
 
-const VARIANTS = {
+const VARIANTS = themed((colors) => ({
   primary: {
     container: {
       backgroundColor: colors.primaryContainer,
@@ -28,7 +23,7 @@ const VARIANTS = {
     label: { color: colors.primary },
     icon: colors.primary,
   },
-};
+}));
 
 /**
  * Nut bam chuan cua app.
@@ -89,7 +84,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   base: {
     minHeight: 48,
     flexDirection: "row",
@@ -104,4 +99,4 @@ const styles = StyleSheet.create({
   label: { fontSize: typography.labelLg, fontWeight: "600" },
   pressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
   disabled: { opacity: 0.6 },
-});
+}));

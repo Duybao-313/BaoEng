@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "./Text";
 
-import { colors, radius, spacing, typography } from "../../constants/theme";
+import { colors, radius, spacing, themed, typography } from "../../constants/theme";
 
 const LEVEL_TONES = {
   BEGINNER: { label: "Beginner", color: "#0E7490", bg: "#E0F2FE" },
@@ -27,7 +28,7 @@ export function LevelChip({ level }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   chip: {
     alignSelf: "flex-start",
     paddingHorizontal: spacing.sm,
@@ -38,4 +39,4 @@ const styles = StyleSheet.create({
     fontSize: typography.labelSm,
     fontWeight: "700",
   },
-});
+}));

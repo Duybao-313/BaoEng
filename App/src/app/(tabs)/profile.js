@@ -1,8 +1,10 @@
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
-import { changePassword, updateMe } from "../../api";
+import { changePassword, resolveAssetUrl, updateMe, uploadAvatar } from "../../api";
 import { AppHeader } from "../../components/layout/AppHeader";
 import {
   Alert,
@@ -12,15 +14,20 @@ import {
   Input,
   Screen,
 } from "../../components/ui";
-import { colors, radius, spacing, typography } from "../../constants/theme";
+import { colors, radius, spacing, themed, typography } from "../../constants/theme";
 import { useAuth } from "../../store/auth";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { session, signOut } = useAuth();
+  const { session, signOut, updateUser } = useAuth();
 
   const user = session?.user ?? {};
+  const avatarUrl = resolveAssetUrl(user.avatarUrl);
   const [fullName, setFullName] = useState(user.fullName ?? "");
+
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarMessage, setAvatarMessage] = useState(null);
+  const [avatarError, setAvatarError] = useState(null);
 
   const [saving, setSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState(null);
@@ -32,6 +39,44 @@ export default function ProfileScreen() {
   const [passwordError, setPasswordError] = useState(null);
   const [passwordMessage, setPasswordMessage] = useState(null);
   const [changingPassword, setChangingPassword] = useState(false);
+
+  const handlePickAvatar = async () => {
+    setAvatarError(null);
+    setAvatarMessage(null);
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setAvatarError("Bạn cần cấp quyền truy cập thư viện ảnh để đổi ảnh đại diện.");
+      return;
+    }
+
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (picked.canceled || !picked.assets?.length) return;
+
+    const asset = picked.assets[0];
+    setUploadingAvatar(true);
+    try {
+      const updated = await uploadAvatar({
+        uri: asset.uri,
+        name: asset.fileName ?? "avatar.jpg",
+        type: asset.mimeType ?? "image/jpeg",
+        file: asset.file,
+      });
+      updateUser({
+        avatarUrl: updated?.avatarUrl ?? null,
+        fullName: updated?.fullName ?? user.fullName,
+      });
+      setAvatarMessage("Đã cập nhật ảnh đại diện.");
+    } catch (err) {
+      setAvatarError(err?.message ?? "Không cập nhật được ảnh đại diện.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!fullName.trim()) {
@@ -96,12 +141,39 @@ export default function ProfileScreen() {
       >
         {/* Avatar */}
         <View style={styles.avatarWrap}>
-          <View style={styles.avatar}>
-            <Icon name="person" size={40} color={colors.onPrimary} />
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Đổi ảnh đại diện"
+            onPress={handlePickAvatar}
+            disabled={uploadingAvatar}
+            style={({ pressed }) => [pressed ? styles.pressed : null]}
+          >
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatar}>
+                <Icon name="person" size={40} color={colors.onPrimary} />
+              </View>
+            )}
+            <View style={styles.avatarBadge}>
+              <Icon
+                name={uploadingAvatar ? "hourglass-empty" : "photo-camera"}
+                size={16}
+                color={colors.onPrimary}
+              />
+            </View>
+          </Pressable>
           <Text style={styles.username}>{user.username ?? ""}</Text>
           <Text style={styles.role}>Học viên</Text>
         </View>
+
+        <Alert
+          title="Ảnh đại diện"
+          variant="success"
+          visible={Boolean(avatarMessage)}
+          message={avatarMessage}
+        />
+        <Alert title="Ảnh đại diện" message={avatarError} />
 
         <Alert
           title="Thông tin cá nhân"
@@ -185,7 +257,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
@@ -204,6 +276,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primary,
   },
+  avatarImage: {
+    width: 88,
+    height: 88,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceContainerHigh,
+  },
+  avatarBadge: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: 28,
+    height: 28,
+    borderRadius: radius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.background,
+  },
+  pressed: { opacity: 0.85 },
   username: {
     fontSize: typography.heading,
     fontWeight: "600",
@@ -213,4 +305,4 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyMd,
     color: colors.textMuted,
   },
-});
+}));

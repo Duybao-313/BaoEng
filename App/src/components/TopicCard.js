@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "./ui/Text";
 
-import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { radius, shadows, spacing, themed, typography } from "../constants/theme";
 import { HighlightedText, LevelChip, ProgressBar } from "./ui";
 
 /**
@@ -53,7 +54,7 @@ export function TopicCard({ topic, onPress, highlight }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   card: {
     width: "100%",
     gap: spacing.sm,
@@ -91,4 +92,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.textMuted,
   },
-});
+}));

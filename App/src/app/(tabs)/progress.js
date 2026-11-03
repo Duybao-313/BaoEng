@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import { getProgress } from "../../api";
 import { AppHeader } from "../../components/layout/AppHeader";
@@ -11,7 +12,7 @@ import {
   Screen,
   Skeleton,
 } from "../../components/ui";
-import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { radius, shadows, spacing, themed, typography } from "../../constants/theme";
 import { TodayProgressCard, useTodayProgress } from "../../features/home";
 import {
   ProgressStatTiles,
@@ -283,7 +284,7 @@ export default function ProgressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
@@ -371,4 +372,4 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyMd,
     color: colors.textMuted,
   },
-});
+}));

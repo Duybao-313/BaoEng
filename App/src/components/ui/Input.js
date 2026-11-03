@@ -1,13 +1,9 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
+import { Text } from "./Text";
 
-import {
-  colors,
-  radius,
-  shadows,
-  spacing,
-  typography,
-} from "../../constants/theme";
+import { colors, radius, shadows, spacing, themed, typography } from "../../constants/theme";
+import { translate } from "../../i18n";
 import { Icon } from "./Icon";
 
 /**
@@ -28,6 +24,7 @@ import { Icon } from "./Icon";
  */
 export function Input({
   label,
+  placeholder,
   error,
   valid = false,
   validLabel = "Hợp lệ",
@@ -74,8 +71,9 @@ export function Input({
         ) : null}
 
         <TextInput
-          accessibilityLabel={label}
+          accessibilityLabel={translate(label)}
           editable={editable}
+          placeholder={translate(placeholder)}
           placeholderTextColor={colors.outline}
           secureTextEntry={hidden}
           style={[styles.input, style]}
@@ -115,7 +113,7 @@ export function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   wrapper: { width: "100%", gap: spacing.xs },
   labelRow: {
     flexDirection: "row",
@@ -160,4 +158,4 @@ const styles = StyleSheet.create({
   trailingButton: { padding: spacing.xs, borderRadius: radius.sm },
   pressed: { opacity: 0.7 },
   errorText: { fontSize: typography.caption, color: colors.danger },
-});
+}));

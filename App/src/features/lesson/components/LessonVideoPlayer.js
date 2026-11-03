@@ -1,7 +1,7 @@
 import { useVideoPlayer, VideoView } from "expo-video";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 
-import { colors, radius } from "../../../constants/theme";
+import { radius, themed } from "../../../constants/theme";
 
 /**
  * Trinh phat video hoc lieu, phat truc tiep trong app (native controls + fullscreen).
@@ -30,7 +30,7 @@ export function LessonVideoPlayer({ uri }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   wrap: {
     width: "100%",
     aspectRatio: 16 / 9,
@@ -42,4 +42,4 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-});
+}));

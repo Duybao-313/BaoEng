@@ -11,6 +11,7 @@ export * from "./auth";
 export * from "./comments";
 export * from "./lessons";
 export * from "./minigames";
+export * from "./notifications";
 export * from "./progress";
 export * from "./search";
 export * from "./topics";

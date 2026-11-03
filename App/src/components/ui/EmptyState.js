@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "./Text";
 
-import { colors, radius, spacing, typography } from "../../constants/theme";
+import { colors, radius, spacing, themed, typography } from "../../constants/theme";
 import { Icon } from "./Icon";
 
 /**
@@ -19,7 +20,7 @@ export function EmptyState({ icon = "inbox", title, message }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   wrap: {
     alignItems: "center",
     justifyContent: "center",
@@ -46,4 +47,4 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: "center",
   },
-});
+}));

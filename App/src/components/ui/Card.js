@@ -1,12 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "./Text";
 
-import {
-  colors,
-  radius,
-  shadows,
-  spacing,
-  typography,
-} from "../../constants/theme";
+import { radius, shadows, spacing, themed, typography } from "../../constants/theme";
 
 /**
  * Card bao ngoai noi dung — nen trang, bo goc 16px, do bong nhe (theo mockup).
@@ -21,7 +16,7 @@ export function Card({ children, title, style }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   card: {
     width: "100%",
     gap: spacing.md,
@@ -35,4 +30,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.text,
   },
-});
+}));

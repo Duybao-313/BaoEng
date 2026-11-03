@@ -1,13 +1,6 @@
 import { useRouter } from "expo-router";
-import {
-  Alert as AlertDialog,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert as AlertDialog, Image, Pressable, ScrollView, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import { AppHeader } from "../../components/layout/AppHeader";
 import {
@@ -20,13 +13,7 @@ import {
   Input,
   Screen,
 } from "../../components/ui";
-import {
-  colors,
-  radius,
-  shadows,
-  spacing,
-  typography,
-} from "../../constants/theme";
+import { colors, radius, shadows, spacing, themed, typography } from "../../constants/theme";
 import { SocialSignIn, useSignIn } from "../../features/auth";
 
 const LOGO = require("../../../assets/icon.png");
@@ -196,7 +183,7 @@ export default function SignInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   content: {
     flexGrow: 1,
     width: "100%",
@@ -321,4 +308,4 @@ const styles = StyleSheet.create({
     fontSize: typography.labelSm,
     color: colors.textMuted,
   },
-});
+}));

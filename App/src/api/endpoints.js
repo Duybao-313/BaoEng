@@ -12,6 +12,7 @@ export const ENDPOINTS = {
   users: {
     me: "/users/me",
     password: "/users/me/password",
+    avatar: "/users/me/avatar",
   },
   topics: {
     list: "/topics",
@@ -44,5 +45,11 @@ export const ENDPOINTS = {
   },
   search: {
     list: "/search",
+  },
+  notifications: {
+    list: "/notifications",
+    unreadCount: "/notifications/unread-count",
+    read: (id) => `/notifications/${id}/read`,
+    readAll: "/notifications/read-all",
   },
 };

@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "./Text";
 
-import { colors, spacing, typography } from "../../constants/theme";
+import { spacing, themed, typography } from "../../constants/theme";
 
 /**
  * Thanh tien do ngang (tuy chon kem nhan %).
@@ -30,7 +31,7 @@ export function ProgressBar({ value = 0, showLabel = false, height = 8 }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -52,4 +53,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.secondary,
   },
-});
+}));

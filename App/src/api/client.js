@@ -48,17 +48,27 @@ export async function request(path, options = {}) {
 
   try {
     const accessToken = getAccessToken();
+    const isFormData =
+      typeof FormData !== "undefined" && body instanceof FormData;
 
     const response = await fetch(url, {
       method,
       signal: controller.signal,
       headers: {
         Accept: "application/json",
-        ...(body !== undefined ? { "Content-Type": "application/json" } : null),
+        // FormData: de trinh duyet tu dat Content-Type kem boundary.
+        ...(body !== undefined && !isFormData
+          ? { "Content-Type": "application/json" }
+          : null),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : null),
         ...headers,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body:
+        body === undefined
+          ? undefined
+          : isFormData
+            ? body
+            : JSON.stringify(body),
     });
 
     const text = await response.text();

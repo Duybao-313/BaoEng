@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "../../../components/ui/Text";
 
-import { colors, radius, shadows, spacing, typography } from "../../../constants/theme";
+import { colors, radius, shadows, spacing, themed, typography } from "../../../constants/theme";
 import { Icon, Skeleton } from "../../../components/ui";
 
 const TONES = {
@@ -60,7 +61,7 @@ export function ProgressStatTiles({ loading = false, items = [] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   row: {
     flexDirection: "row",
     gap: spacing.sm,
@@ -86,4 +87,4 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: "center",
   },
-});
+}));

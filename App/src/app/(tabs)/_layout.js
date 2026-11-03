@@ -2,6 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Redirect, Tabs } from "expo-router";
 
 import { colors } from "../../constants/theme";
+import { useSettings } from "../../providers";
 import { useAuth } from "../../store/auth";
 
 const TABS = [
@@ -22,6 +23,7 @@ const TABS = [
  */
 export default function TabsLayout() {
   const { session } = useAuth();
+  const { t } = useSettings();
 
   if (!session) {
     return <Redirect href="/(auth)/sign-in" />;
@@ -31,6 +33,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        sceneStyle: { backgroundColor: "transparent" },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
@@ -44,7 +47,7 @@ export default function TabsLayout() {
           key={tab.name}
           name={tab.name}
           options={{
-            title: tab.title,
+            title: t(tab.title),
             tabBarIcon: ({ color, size, focused }) => (
               <MaterialIcons
                 name={focused ? tab.activeIcon : tab.icon}

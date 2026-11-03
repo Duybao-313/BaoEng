@@ -27,7 +27,13 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BaoEng cần quyền truy cập thư viện ảnh để bạn đổi ảnh đại diện."
+        }
+      ]
     ]
   }
 }

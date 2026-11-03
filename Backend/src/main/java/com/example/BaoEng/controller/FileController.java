@@ -1,9 +1,9 @@
 package com.example.BaoEng.controller;
 
 import com.example.BaoEng.common.AppConstants;
+import com.example.BaoEng.service.UploadStorage;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -26,18 +26,31 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(AppConstants.API_BASE + "/files")
 public class FileController {
 
-    private final String uploadDir;
+    private static final String MATERIALS_FOLDER = "materials";
+    private static final String AVATARS_FOLDER = "avatars";
 
-    public FileController(@Value("${app.upload-dir:uploads}") String uploadDir) {
-        this.uploadDir = uploadDir;
+    private final UploadStorage uploadStorage;
+
+    public FileController(UploadStorage uploadStorage) {
+        this.uploadStorage = uploadStorage;
     }
 
     @GetMapping("/{filename}")
     public ResponseEntity<Resource> serve(@PathVariable String filename) {
+        return serveFrom(MATERIALS_FOLDER, filename);
+    }
+
+    /** Ảnh đại diện người dùng được lưu trong thư mục con riêng để không lẫn với học liệu. */
+    @GetMapping("/avatars/{filename}")
+    public ResponseEntity<Resource> serveAvatar(@PathVariable String filename) {
+        return serveFrom(AVATARS_FOLDER, filename);
+    }
+
+    private ResponseEntity<Resource> serveFrom(String folder, String filename) {
         if (!filename.matches("[a-zA-Z0-9._-]+")) {
             return ResponseEntity.badRequest().build();
         }
-        Path path = Path.of(uploadDir, "materials", filename).normalize();
+        Path path = uploadStorage.path(folder, filename);
         if (!Files.exists(path)) {
             return ResponseEntity.notFound().build();
         }

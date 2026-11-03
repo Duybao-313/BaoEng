@@ -1,9 +1,12 @@
 import { colors, radius, spacing, typography } from "../constants/theme";
+import { useSettings } from "../providers";
 
 /**
- * Tra ve design tokens cua app.
- * Khi nao them dark mode / ThemeProvider, chi can doi noi bo hook nay.
+ * Tra ve design tokens cua app + giao dien dang chon.
+ * `colors` la Proxy nen gia tri luon la mau cua giao dien hien tai
+ * (light / dark / gradient).
  */
 export function useTheme() {
-  return { colors, radius, spacing, typography };
+  const { themeMode, isDark, isGradient, language } = useSettings();
+  return { colors, radius, spacing, typography, themeMode, isDark, isGradient, language };
 }

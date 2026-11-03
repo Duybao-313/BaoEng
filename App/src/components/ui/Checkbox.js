@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "./Text";
 
-import { colors, radius, spacing, typography } from "../../constants/theme";
+import { colors, radius, spacing, themed, typography } from "../../constants/theme";
 import { Icon } from "./Icon";
 
 /**
@@ -44,7 +45,7 @@ export function Checkbox({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   box: {
     width: 18,
@@ -63,4 +64,4 @@ const styles = StyleSheet.create({
   label: { fontSize: typography.bodyMd, color: colors.textMuted },
   pressed: { opacity: 0.7 },
   disabled: { opacity: 0.5 },
-});
+}));

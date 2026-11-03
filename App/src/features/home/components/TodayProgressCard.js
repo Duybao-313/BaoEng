@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "../../../components/ui/Text";
 
-import { colors, radius, shadows, spacing, typography } from "../../../constants/theme";
+import { colors, radius, shadows, spacing, themed, typography } from "../../../constants/theme";
 import { Button, Icon, Skeleton } from "../../../components/ui";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 
@@ -128,7 +129,7 @@ export function TodayProgressCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   card: {
     gap: spacing.sm,
     padding: spacing.md,
@@ -213,4 +214,4 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   pressed: { opacity: 0.85 },
-});
+}));

@@ -334,6 +334,15 @@ Backend cho phép client **web** gọi API từ origin khác. App mobile native 
 - **Request:** `oldPassword`, `newPassword`
 - **Response 200:** thông báo thành công.
 
+### 3.4. `POST /users/me/avatar` — Cập nhật ảnh đại diện
+
+- **Actor**: Student, Teacher, Admin
+- **Content-Type:** `multipart/form-data`, field `file` (PNG/JPG/WEBP/GIF, tối đa 5MB)
+- **Mô tả**: Lưu ảnh vào `uploads/avatars/` và gán `avatarUrl` công khai cho tài khoản.
+- **Response 200**: đối tượng user đã cập nhật (`avatarUrl` dạng `/api/v1/files/avatars/<tên file>`).
+
+**Lỗi**: `400 VALIDATION_ERROR` (thiếu file) | `400 INVALID_FILE_TYPE` | `413 FILE_TOO_LARGE`
+
 ---
 
 ## 4. NHÓM API CHỦ ĐỀ HỌC TẬP (TOPICS)
@@ -917,6 +926,8 @@ Client gọi khi rời màn Bài học (hoặc khi app chuyển nền) để c�
 
 **Response 201:** đối tượng reply đã tạo.
 
+> Khi giáo viên/admin trả lời bình luận của người khác, hệ thống tạo một **thông báo** cho tác giả bình luận gốc (xem nhóm 14).
+
 ---
 
 ## 11. NHÓM API TÌM KIẾM (SEARCH)
@@ -1080,7 +1091,47 @@ Client gọi khi rời màn Bài học (hoặc khi app chuyển nền) để c�
 
 ---
 
-## 14. PHÂN QUYỀN TRUY CẬP (RBAC MAP)
+## 14. NHÓM API THÔNG BÁO (NOTIFICATIONS)
+
+> **Yêu cầu JWT (🔒):** Cần JWT; mỗi người dùng chỉ thấy thông báo của chính mình.
+
+| Method | Endpoint                               | Actor                   | Mô tả                                   | Auth (JWT) |
+| ------ | -------------------------------------- | ----------------------- | --------------------------------------- | :--------: |
+| `GET`  | `/notifications`                       | Student, Teacher, Admin | Danh sách thông báo (mới nhất trước)    |     🔒     |
+| `GET`  | `/notifications/unread-count`          | Student, Teacher, Admin | Số thông báo chưa đọc                   |     🔒     |
+| `PUT`  | `/notifications/{notificationId}/read` | Student, Teacher, Admin | Đánh dấu một thông báo đã đọc           |     🔒     |
+| `PUT`  | `/notifications/read-all`              | Student, Teacher, Admin | Đánh dấu tất cả đã đọc (trả số bản ghi) |     🔒     |
+
+### 14.1. `GET /notifications` — Danh sách thông báo
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "notificationId": 12,
+      "type": "COMMENT_REPLY",
+      "title": "Phản hồi mới cho bình luận của bạn",
+      "message": "Giao Vien Mot đã trả lời: Em nhấn trọng âm rơi vào âm tiết thứ hai nhé.",
+      "referenceType": "LESSON",
+      "referenceId": 40,
+      "isRead": false,
+      "createdAt": "2026-11-04T09:00:00"
+    }
+  ]
+}
+```
+
+- `type`: hiện có `COMMENT_REPLY` (sinh khi giáo viên/admin trả lời bình luận của người khác).
+- `referenceType`/`referenceId`: đối tượng liên quan (`TOPIC`/`LESSON`) để client mở đúng màn hình.
+
+**Lỗi**: `404 NOTIFICATION_NOT_FOUND` (đánh dấu thông báo không thuộc về người dùng).
+
+---
+
+## 15. PHÂN QUYỀN TRUY CẬP (RBAC MAP)
 
 | Nhóm API                               | Public | Student | Teacher | Admin |
 | -------------------------------------- | :----: | :-----: | :-----: | :---: |
@@ -1098,13 +1149,14 @@ Client gọi khi rời màn Bài học (hoặc khi app chuyển nền) để c�
 | Minigame (publish)                     |   ❌   |   ❌    |   ✅    |  ❌   |
 | Progress                               |   ❌   |   ✅    |   ❌    |  ❌   |
 | Comments (GET/POST)                    |   ❌   |   ✅    |   ✅    |  ❌   |
+| Notifications                          |   ❌   |   ✅    |   ✅    |  ✅   |
 | Teacher Certificates (CRUD)            |   ❌   |   ❌    |   ✅    |  ❌   |
 | Teacher Certificates (verify)          |   ❌   |   ❌    |   ❌    |  ✅   |
 | Admin (`/admin/*`)                     |   ❌   |   ❌    |   ❌    |  ✅   |
 
 ---
 
-## 15. GHI CHÚ TRIỂN KHAI (BACKEND IMPLEMENTATION NOTES)
+## 16. GHI CHÚ TRIỂN KHAI (BACKEND IMPLEMENTATION NOTES)
 
 1. **Sinh OpenAPI tự động:** Thêm dependency `springdoc-openapi-starter-webmvc-ui` vào `pom.xml`, sau đó truy cập `http://localhost:8080/swagger-ui.html` để xem và đối chiếu.
 2. **Chuẩn hóa Envelope:** Dùng 1 lớp `ApiResponse<T>` chung (fields: `success`, `data`, `message`, `timestamp`) cho mọi response.

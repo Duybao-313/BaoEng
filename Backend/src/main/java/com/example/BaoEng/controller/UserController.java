@@ -10,10 +10,13 @@ import com.example.BaoEng.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping(AppConstants.API_BASE + "/users")
@@ -35,6 +38,13 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody UpdateProfileRequest request) {
         return ApiResponse.ok(userService.updateProfile(principal, request), "Cập nhật thành công");
+    }
+
+    @PostMapping(value = "/me/avatar", consumes = "multipart/form-data")
+    public ApiResponse<UserResponse> updateAvatar(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam("file") MultipartFile file) {
+        return ApiResponse.ok(userService.updateAvatar(principal, file), "Cập nhật ảnh đại diện thành công");
     }
 
     @PutMapping("/me/password")

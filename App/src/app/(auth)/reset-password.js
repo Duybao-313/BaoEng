@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import { resetPassword } from "../../api";
 import { AppHeader } from "../../components/layout/AppHeader";
@@ -11,7 +12,7 @@ import {
   Input,
   Screen,
 } from "../../components/ui";
-import { colors, spacing, typography } from "../../constants/theme";
+import { spacing, themed, typography } from "../../constants/theme";
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -110,7 +111,7 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   content: {
     flexGrow: 1,
     width: "100%",
@@ -131,4 +132,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.textMuted,
   },
-});
+}));

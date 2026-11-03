@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "./Text";
 
-import { colors, spacing, typography } from "../../constants/theme";
+import { spacing, themed, typography } from "../../constants/theme";
 
 /**
  * Duong ke ngang kem nhan o giua (vi du: "Hoac dang nhap voi").
@@ -17,8 +18,8 @@ export function Divider({ label, style }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   line: { flex: 1, height: 1, backgroundColor: colors.border },
   label: { fontSize: typography.labelSm, color: colors.textMuted },
-});
+}));

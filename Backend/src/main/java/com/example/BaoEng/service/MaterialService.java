@@ -11,12 +11,8 @@ import com.example.BaoEng.repository.LessonMaterialRepository;
 import com.example.BaoEng.repository.LessonRepository;
 import com.example.BaoEng.security.UserPrincipal;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,17 +29,17 @@ public class MaterialService {
     private final LessonMaterialRepository materialRepository;
     private final LessonRepository lessonRepository;
     private final LessonService lessonService;
-    private final String uploadDir;
+    private final UploadStorage uploadStorage;
 
     public MaterialService(
             LessonMaterialRepository materialRepository,
             LessonRepository lessonRepository,
             LessonService lessonService,
-            @Value("${app.upload-dir:uploads}") String uploadDir) {
+            UploadStorage uploadStorage) {
         this.materialRepository = materialRepository;
         this.lessonRepository = lessonRepository;
         this.lessonService = lessonService;
-        this.uploadDir = uploadDir;
+        this.uploadStorage = uploadStorage;
     }
 
     public List<MaterialResponse> list(Long lessonId) {
@@ -63,12 +59,8 @@ public class MaterialService {
         validateSize(materialType, file.getSize());
 
         String storedName = UUID.randomUUID() + extensionOf(file);
-        Path target = Path.of(uploadDir, "materials", storedName);
-        try {
-            Files.createDirectories(target.getParent());
-            try (var in = file.getInputStream()) {
-                Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-            }
+        try (var in = file.getInputStream()) {
+            uploadStorage.save("materials", storedName, in);
         } catch (IOException e) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "Không thể lưu file.");
         }
@@ -95,11 +87,7 @@ public class MaterialService {
             return;
         }
         String filename = fileUrl.substring(fileUrl.lastIndexOf('/') + 1);
-        try {
-            Files.deleteIfExists(Path.of(uploadDir, "materials", filename));
-        } catch (IOException ignored) {
-            // bỏ qua lỗi xóa file vật lý
-        }
+        uploadStorage.deleteQuietly("materials", filename);
     }
 
     private MaterialType parseType(String value) {

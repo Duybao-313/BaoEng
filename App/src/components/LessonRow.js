@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "./ui/Text";
 
-import { colors, radius, spacing, typography } from "../constants/theme";
+import { colors, radius, spacing, themed, typography } from "../constants/theme";
 import { Icon } from "./ui";
 
 /**
@@ -42,7 +43,7 @@ export function LessonRow({ index, lesson, onPress }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -77,4 +78,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primaryContainer,
   },
-});
+}));

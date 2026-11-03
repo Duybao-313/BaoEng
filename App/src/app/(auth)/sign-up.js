@@ -1,9 +1,10 @@
 import { useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import { AppHeader } from "../../components/layout/AppHeader";
 import { Alert, Button, Card, Input, Screen } from "../../components/ui";
-import { colors, spacing, typography } from "../../constants/theme";
+import { spacing, themed, typography } from "../../constants/theme";
 import { useSignUp } from "../../features/auth";
 
 export default function SignUpScreen() {
@@ -121,7 +122,7 @@ export default function SignUpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   content: {
     flexGrow: 1,
     width: "100%",
@@ -159,4 +160,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.primaryContainer,
   },
-});
+}));

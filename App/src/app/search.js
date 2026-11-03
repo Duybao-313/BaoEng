@@ -1,14 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import {
-  Keyboard,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Keyboard, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Text } from "../components/ui/Text";
 
 import { search } from "../api";
 import { TopicCard } from "../components/TopicCard";
@@ -20,8 +13,9 @@ import {
   Screen,
   Skeleton,
 } from "../components/ui";
-import { colors, radius, spacing, typography } from "../constants/theme";
+import { colors, radius, spacing, themed, typography } from "../constants/theme";
 import { useAsync, useDebouncedValue } from "../hooks";
+import { useSettings } from "../providers";
 import { addRecentSearch } from "../utils";
 
 const LEVELS = [
@@ -34,6 +28,7 @@ const LEVELS = [
 export default function SearchScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { t } = useSettings();
   const [q, setQ] = useState(params.q ?? "");
   const [level, setLevel] = useState(null);
   // Chi goi API sau khi nguoi dung ngung go 350ms.
@@ -77,9 +72,9 @@ export default function SearchScreen() {
         <View style={styles.searchBox}>
           <Icon name="search" size={20} color={colors.textMuted} />
           <TextInput
-            accessibilityLabel="Tìm kiếm"
+            accessibilityLabel={t("Tìm kiếm")}
             style={styles.searchInput}
-            placeholder="Tìm kiếm chủ đề, bài học..."
+            placeholder={t("Tìm kiếm chủ đề, bài học...")}
             placeholderTextColor={colors.outline}
             value={q}
             onChangeText={setQ}
@@ -253,7 +248,7 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   topBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -326,4 +321,4 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLg,
     color: colors.text,
   },
-});
+}));

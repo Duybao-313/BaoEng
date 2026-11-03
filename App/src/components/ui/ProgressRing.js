@@ -1,7 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
-import { colors, radius } from "../../constants/theme";
+import { colors, radius, themed } from "../../constants/theme";
 
 /**
  * Vong tien do (donut) ve cung theo phan tram.
@@ -67,7 +67,7 @@ export function ProgressRing({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   wrap: {
     alignItems: "center",
     justifyContent: "center",
@@ -78,4 +78,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: radius.full,
   },
-});
+}));

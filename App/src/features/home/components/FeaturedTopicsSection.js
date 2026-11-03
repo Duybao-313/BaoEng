@@ -1,8 +1,9 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "../../../components/ui/Text";
 
 import { TopicCard } from "../../../components/TopicCard";
 import { Button, EmptyState, Skeleton } from "../../../components/ui";
-import { colors, spacing, typography } from "../../../constants/theme";
+import { spacing, themed, typography } from "../../../constants/theme";
 
 /**
  * Khoi "Tat ca chu de noi bat": danh sach doc cac TopicCard day du.
@@ -102,7 +103,7 @@ export function FeaturedTopicsSection({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   section: { gap: spacing.md },
   title: {
     fontSize: typography.heading,
@@ -117,4 +118,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   stateBox: { gap: spacing.md },
-});
+}));

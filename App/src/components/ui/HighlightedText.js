@@ -1,6 +1,7 @@
-import { StyleSheet, Text } from "react-native";
 
-import { colors } from "../../constants/theme";
+
+import { themed } from "../../constants/theme";
+import { Text } from "./Text";
 
 /**
  * To dam phan khop voi tu khoa trong mot doan text (khong phan biet hoa/thuong).
@@ -67,10 +68,10 @@ export function HighlightedText({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   match: {
     backgroundColor: colors.tertiaryFixed,
     color: colors.onTertiaryFixed,
     fontWeight: "700",
   },
-});
+}));

@@ -86,9 +86,19 @@ export function AuthProvider({ children }) {
     setSession(null);
   }, []);
 
+  /** Cap nhat thong tin user trong phien (vd: sau khi doi anh dai dien). */
+  const updateUser = useCallback((patch) => {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const user = { ...(prev.user ?? {}), ...patch };
+      storeUser(user);
+      return { ...prev, user };
+    });
+  }, []);
+
   const value = useMemo(
-    () => ({ session, signIn, signOut }),
-    [session, signIn, signOut],
+    () => ({ session, signIn, signOut, updateUser }),
+    [session, signIn, signOut, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

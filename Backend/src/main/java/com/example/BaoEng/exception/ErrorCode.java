@@ -29,6 +29,7 @@ public enum ErrorCode {
     MATERIAL_NOT_FOUND(HttpStatus.NOT_FOUND, "Material not found"),
     MINIGAME_NOT_FOUND(HttpStatus.NOT_FOUND, "Minigame not found"),
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "Comment not found"),
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "Notification not found"),
     CERTIFICATE_NOT_FOUND(HttpStatus.NOT_FOUND, "Certificate not found"),
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "File too large"),
     INVALID_FILE_TYPE(HttpStatus.BAD_REQUEST, "Invalid file type"),

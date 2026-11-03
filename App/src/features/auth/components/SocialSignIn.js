@@ -1,13 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "../../../components/ui/Text";
 
 import { Icon } from "../../../components/ui";
-import {
-  colors,
-  radius,
-  shadows,
-  spacing,
-  typography,
-} from "../../../constants/theme";
+import { colors, radius, shadows, spacing, themed, typography } from "../../../constants/theme";
 
 const PROVIDERS = [
   { id: "google", label: "Google", icon: "google", color: "#4285F4" },
@@ -45,7 +40,7 @@ export function SocialSignIn({ onPressProvider }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   row: { flexDirection: "row", gap: spacing.md },
   button: {
     flex: 1,
@@ -64,4 +59,4 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   pressed: { opacity: 0.85 },
-});
+}));

@@ -27,16 +27,19 @@ public class CommentService {
     private final UserRepository userRepository;
     private final TopicRepository topicRepository;
     private final LessonRepository lessonRepository;
+    private final NotificationService notificationService;
 
     public CommentService(
             CommentRepository commentRepository,
             UserRepository userRepository,
             TopicRepository topicRepository,
-            LessonRepository lessonRepository) {
+            LessonRepository lessonRepository,
+            NotificationService notificationService) {
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
         this.topicRepository = topicRepository;
         this.lessonRepository = lessonRepository;
+        this.notificationService = notificationService;
     }
 
     /** Danh sach binh luan goc; loc theo targetType + targetId khi co. */
@@ -108,7 +111,27 @@ public class CommentService {
         parent.setReplyCount(parent.getReplyCount() + 1);
         commentRepository.save(parent);
 
+        notifyReplyRecipient(principal, parent, reply.getContent());
+
         return toResponse(reply);
+    }
+
+    /** Báo cho tác giả bình luận gốc khi người khác trả lời (bỏ qua nếu tự trả lời mình). */
+    private void notifyReplyRecipient(UserPrincipal principal, Comment parent, String replyContent) {
+        if (parent.getAuthorUserId() == null
+                || parent.getAuthorUserId().equals(principal.getUserId())) {
+            return;
+        }
+        String actorName = userRepository.findById(principal.getUserId())
+                .map(User::getFullName)
+                .filter(name -> name != null && !name.isBlank())
+                .orElse(principal.getUsername());
+        notificationService.notifyCommentReply(
+                parent.getAuthorUserId(),
+                actorName,
+                parent.getTargetType().name(),
+                parent.getTargetId(),
+                replyContent);
     }
 
     private CommentResponse toResponse(Comment comment) {

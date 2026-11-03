@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import { Text } from "../../components/ui/Text";
 
 import {
   enrollTopic,
@@ -20,7 +21,7 @@ import {
   Screen,
   Skeleton,
 } from "../../components/ui";
-import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { colors, radius, shadows, spacing, themed, typography } from "../../constants/theme";
 import { useAsync } from "../../hooks";
 import { formatPercent } from "../../utils";
 
@@ -268,7 +269,7 @@ export default function TopicDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((colors) => ({
   topBar: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
@@ -383,4 +384,4 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyMd,
     color: colors.danger,
   },
-});
+}));
