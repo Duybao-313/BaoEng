@@ -16,6 +16,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -120,7 +121,31 @@ public class SecurityConfig {
                 .toList();
     }
 
+    /**
+     * Chuỗi lọc cho các endpoint Auth công khai — KHÔNG cấu hình Resource Server,
+     * vì vậy header Authorization cũ/hết hạn sẽ KHÔNG gây 401 ở các endpoint này.
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain publicAuthFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher(
+                AppConstants.AUTH_BASE + "/register",
+                AppConstants.AUTH_BASE + "/login",
+                AppConstants.AUTH_BASE + "/refresh",
+                AppConstants.AUTH_BASE + "/forgot-password",
+                AppConstants.AUTH_BASE + "/reset-password",
+                AppConstants.AUTH_BASE + "/verify-email"
+            )
+            .csrf(csrf -> csrf.disable())
+            .cors(Customizer.withDefaults())
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(
             HttpSecurity http,
             UserJwtAuthenticationConverter converter,
@@ -129,16 +154,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    AppConstants.AUTH_BASE + "/register",
-                    AppConstants.AUTH_BASE + "/login",
-                    AppConstants.AUTH_BASE + "/refresh",
-                    AppConstants.AUTH_BASE + "/forgot-password",
-                    AppConstants.AUTH_BASE + "/reset-password",
-                    AppConstants.AUTH_BASE + "/verify-email"
-                ).permitAll()
-                .anyRequest().authenticated())
+            .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
             .oauth2ResourceServer(oauth2 -> oauth2
                 .authenticationEntryPoint((request, response, authException) ->
                     writeJsonError(response, objectMapper, ErrorCode.UNAUTHORIZED))
