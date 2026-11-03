@@ -20,6 +20,7 @@ import com.example.BaoEng.repository.LessonRepository;
 import com.example.BaoEng.repository.StudySessionRepository;
 import com.example.BaoEng.repository.TopicRepository;
 import com.example.BaoEng.security.UserPrincipal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -69,6 +70,10 @@ public class ProgressService {
     @Value("${app.progress.daily-goal-minutes:15}")
     private int dailyGoalMinutes;
 
+    /** Muc tieu phut luyen tap moi tuan, cau hinh qua `app.progress.weekly-goal-minutes`. */
+    @Value("${app.progress.weekly-goal-minutes:90}")
+    private int weeklyGoalMinutes;
+
     /**
      * Tien do hoc tap trong ngay (khoi "Tien do hom nay" o Trang chu).
      * Phut hoc = time_spent_minutes cua bai da lam hom nay + thoi gian client bao qua /progress/activity.
@@ -80,13 +85,17 @@ public class ProgressService {
         int minutesToday = 0;
         Set<Long> completedLessonIds = new HashSet<>();
         Set<LocalDate> activityDates = new HashSet<>();
+        Map<LocalDate, Integer> minutesByDate = new HashMap<>();
 
         for (LessonProgress row : lessonProgressRepository.findByStudentIdOrderByCreatedAtDesc(student.getStudentId())) {
             LocalDate activityDate = toDate(row.getLastActivityAt() != null ? row.getLastActivityAt() : row.getCreatedAt());
             if (activityDate != null) {
                 activityDates.add(activityDate);
-                if (activityDate.equals(today) && row.getTimeSpentMinutes() != null) {
-                    minutesToday += row.getTimeSpentMinutes();
+                if (row.getTimeSpentMinutes() != null) {
+                    minutesByDate.merge(activityDate, row.getTimeSpentMinutes(), Integer::sum);
+                    if (activityDate.equals(today)) {
+                        minutesToday += row.getTimeSpentMinutes();
+                    }
                 }
             }
             if (row.getStatus() == LessonProgressStatus.COMPLETED) {
@@ -104,9 +113,31 @@ public class ProgressService {
                 continue;
             }
             activityDates.add(studiedDate);
-            if (studiedDate.equals(today) && session.getMinutes() != null) {
-                minutesToday += session.getMinutes();
+            if (session.getMinutes() != null) {
+                minutesByDate.merge(studiedDate, session.getMinutes(), Integer::sum);
+                if (studiedDate.equals(today)) {
+                    minutesToday += session.getMinutes();
+                }
             }
+        }
+
+        LocalDate weekStart = today.with(DayOfWeek.MONDAY);
+        List<Integer> weeklyDailyMinutes = new ArrayList<>(7);
+        int minutesThisWeek = 0;
+        int daysStudiedThisWeek = 0;
+        for (int offset = 0; offset < 7; offset++) {
+            LocalDate day = weekStart.plusDays(offset);
+            int minutes = day.isAfter(today) ? 0 : minutesByDate.getOrDefault(day, 0);
+            weeklyDailyMinutes.add(minutes);
+            if (minutes > 0) {
+                minutesThisWeek += minutes;
+                daysStudiedThisWeek++;
+            }
+        }
+
+        int previousWeekMinutes = 0;
+        for (int offset = 0; offset < 7; offset++) {
+            previousWeekMinutes += minutesByDate.getOrDefault(weekStart.minusDays(7 - offset), 0);
         }
 
         TopicProgressResponse current = currentTopic(student.getStudentId());
@@ -120,7 +151,13 @@ public class ProgressService {
                 activityDates.contains(today),
                 current == null ? null : current.topicId(),
                 current == null ? null : current.title(),
-                current == null ? null : current.progressPercent());
+                current == null ? null : current.progressPercent(),
+                weekStart,
+                weeklyGoalMinutes,
+                minutesThisWeek,
+                previousWeekMinutes,
+                daysStudiedThisWeek,
+                weeklyDailyMinutes);
     }
 
     /** Ghi nhan thoi gian hoc client bao ve (khi roi man Bai hoc) va tra ve tien do hom nay. */
@@ -202,7 +239,20 @@ public class ProgressService {
         double overall = totalLessonsAll == 0
                 ? 0.0
                 : round1(completedLessonsAll * 100.0 / totalLessonsAll);
-        return new ProgressOverviewResponse(overall, topics);
+
+        int totalMinutes = 0;
+        for (LessonProgress row : lessonProgressRepository.findByStudentIdOrderByCreatedAtDesc(student.getStudentId())) {
+            if (row.getTimeSpentMinutes() != null) {
+                totalMinutes += row.getTimeSpentMinutes();
+            }
+        }
+        for (StudySession session : studySessionRepository.findByStudentIdOrderByStudiedAtDesc(student.getStudentId())) {
+            if (session.getMinutes() != null) {
+                totalMinutes += session.getMinutes();
+            }
+        }
+
+        return new ProgressOverviewResponse(overall, totalMinutes, topics);
     }
 
     /** Tiến độ theo một chủ đề cụ thể. */
@@ -283,11 +333,14 @@ public class ProgressService {
         List<Lesson> lessons = lessonRepository.findByTopicIdOrderByOrderIndexAsc(topicId);
 
         long completed = 0;
+        String nextLessonTitle = null;
         for (Lesson lesson : lessons) {
             Optional<LessonProgress> latest = lessonProgressRepository
                     .findTopByStudentIdAndLessonIdOrderByAttemptNumberDesc(studentId, lesson.getLessonId());
             if (latest.isPresent() && latest.get().getStatus() == LessonProgressStatus.COMPLETED) {
                 completed++;
+            } else if (nextLessonTitle == null) {
+                nextLessonTitle = lesson.getTitle();
             }
         }
 
@@ -298,7 +351,15 @@ public class ProgressService {
                 .map(e -> e.getStatus() != EnrollmentStatus.DROPPED)
                 .orElse(false);
 
-        return new TopicProgressResponse(topicId, topic.getTitle(), completed, lessons.size(), percent, enrolled);
+        return new TopicProgressResponse(
+                topicId,
+                topic.getTitle(),
+                topic.getDescription(),
+                completed,
+                lessons.size(),
+                percent,
+                enrolled,
+                nextLessonTitle);
     }
 
     private double round1(double value) {

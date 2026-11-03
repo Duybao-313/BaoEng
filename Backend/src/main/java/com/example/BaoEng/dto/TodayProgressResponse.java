@@ -1,6 +1,7 @@
 package com.example.BaoEng.dto;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Tien do hoc tap trong ngay cua Student (khoi "Tien do hom nay" o Trang chu).
@@ -14,6 +15,12 @@ import java.time.LocalDate;
  * @param currentTopicId           chu de dang hoc do (null neu khong co)
  * @param currentTopicTitle        ten chu de dang hoc do
  * @param currentTopicProgressPercent % hoan thanh cua chu de dang hoc do
+ * @param weekStart                ngay Thu Hai cua tuan hien tai
+ * @param weeklyGoalMinutes        muc tieu phut luyen tap moi tuan (cau hinh)
+ * @param minutesThisWeek          so phut da luyen tap trong tuan (tu Thu Hai den hom nay)
+ * @param previousWeekMinutes      so phut luyen tap ca tuan truoc (de tinh xu huong tang/giam)
+ * @param daysStudiedThisWeek      so ngay co hoat dong hoc trong tuan
+ * @param weeklyDailyMinutes       phut hoc tung ngay trong tuan, thu tu Thu Hai -> Chu Nhat (7 phan tu)
  */
 public record TodayProgressResponse(
         LocalDate date,
@@ -24,6 +31,12 @@ public record TodayProgressResponse(
         boolean studiedToday,
         Long currentTopicId,
         String currentTopicTitle,
-        Double currentTopicProgressPercent
+        Double currentTopicProgressPercent,
+        LocalDate weekStart,
+        int weeklyGoalMinutes,
+        int minutesThisWeek,
+        int previousWeekMinutes,
+        int daysStudiedThisWeek,
+        List<Integer> weeklyDailyMinutes
 ) {
 }

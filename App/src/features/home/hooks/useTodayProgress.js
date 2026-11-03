@@ -4,7 +4,8 @@ import { getTodayProgress } from "../../../api";
 import { useAsync } from "../../../hooks";
 
 /**
- * Tien do hoc trong ngay cho khoi "Tien do hom nay" o Trang chu.
+ * Tien do hoc trong ngay + trong tuan cho khoi "Tien do hom nay" (Trang chu)
+ * va khoi "Thu thach thoi gian luyen tap tuan nay" (Tien do).
  * Tra ve du lieu goc + vai gia tri da tinh san de UI khong phai tu xu ly.
  */
 export function useTodayProgress() {
@@ -22,6 +23,13 @@ export function useTodayProgress() {
       : 0;
   const remainingMinutes = Math.max(0, goalMinutes - minutes);
 
+  const weeklyGoalMinutes = data?.weeklyGoalMinutes ?? 90;
+  const weeklyMinutes = data?.minutesThisWeek ?? 0;
+  const weeklyPercent =
+    weeklyGoalMinutes > 0
+      ? Math.min(100, Math.round((weeklyMinutes / weeklyGoalMinutes) * 100))
+      : 0;
+
   return {
     today: data,
     loading,
@@ -37,5 +45,17 @@ export function useTodayProgress() {
     currentTopicId: data?.currentTopicId ?? null,
     currentTopicTitle: data?.currentTopicTitle ?? null,
     currentTopicProgressPercent: data?.currentTopicProgressPercent ?? null,
+    // Theo tuan (Thu Hai -> Chu Nhat)
+    weekStart: data?.weekStart ?? null,
+    weeklyGoalMinutes,
+    weeklyMinutes,
+    weeklyPercent,
+    weeklyRemainingMinutes: Math.max(0, weeklyGoalMinutes - weeklyMinutes),
+    weeklyGoalReached: weeklyPercent >= 100,
+    previousWeekMinutes: data?.previousWeekMinutes ?? 0,
+    daysStudiedThisWeek: data?.daysStudiedThisWeek ?? 0,
+    weeklyDailyMinutes: Array.isArray(data?.weeklyDailyMinutes)
+      ? data.weeklyDailyMinutes
+      : [],
   };
 }

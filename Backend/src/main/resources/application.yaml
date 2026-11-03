@@ -29,6 +29,8 @@ app:
   progress:
     # Muc tieu phut hoc moi ngay (hien thi o khoi "Tien do hom nay").
     daily-goal-minutes: "${DAILY_GOAL_MINUTES:15}"
+    # Muc tieu phut luyen tap moi tuan (khoi "Thu thach thoi gian luyen tap tuan nay").
+    weekly-goal-minutes: "${WEEKLY_GOAL_MINUTES:90}"
   cors:
     # Origin của client web được phép gọi API (nhiều giá trị cách nhau bằng dấu phẩy).
     # 5173 = Vite, 3000 = CRA/Next, 8081 = Expo Web (Metro).

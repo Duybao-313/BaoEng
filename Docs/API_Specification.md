@@ -753,6 +753,10 @@ Dùng cho khối "Tất cả chủ đề nổi bật" và trang danh sách đầ
 
 > **Ghi chú:** Các số liệu (`completedLessons`, `progressPercent`) được tính từ **bản ghi `LESSON_PROGRESS` mới nhất** của từng bài học (theo `attempt_number DESC`); các bản ghi cũ chỉ phục vụ lịch sử.
 
+- `totalMinutes` = tổng thời gian luyện tập tích lũy (tổng `time_spent_minutes` + `study_sessions.minutes`), dùng cho thẻ "Giờ tích lũy".
+- `description` = mô tả ngắn của chủ đề (hiển thị trên thẻ tiến độ).
+- `nextLessonTitle` = tên bài học **chưa hoàn thành** đầu tiên theo `orderIndex` (null khi đã xong toàn bộ chủ đề) — dùng cho dòng "Bài tiếp: …".
+
 **Response 200:**
 
 ```json
@@ -760,13 +764,17 @@ Dùng cho khối "Tất cả chủ đề nổi bật" và trang danh sách đầ
   "success": true,
   "data": {
     "overallProgressPercent": 45.5,
+    "totalMinutes": 1680,
     "topics": [
       {
         "topicId": 3,
         "title": "Tiếng Anh giao tiếp cơ bản",
+        "description": "Khóa học giao tiếp cho người mới bắt đầu",
         "completedLessons": 4,
         "totalLessons": 10,
-        "progressPercent": 40.0
+        "progressPercent": 40.0,
+        "enrolled": true,
+        "nextLessonTitle": "Bài 5: Đặt câu hỏi (Questions)"
       }
     ]
   }
@@ -775,13 +783,19 @@ Dùng cho khối "Tất cả chủ đề nổi bật" và trang danh sách đầ
 
 ### 9.2. `GET /progress/today` — Tiến độ học trong ngày
 
-Dùng cho khối "Tiến độ hôm nay" ở Trang chủ app.
+Dùng cho khối "Tiến độ hôm nay" ở Trang chủ app và khối "Thời gian luyện tập tuần này" ở tab Tiến độ.
 
 - `minutesToday` = tổng `time_spent_minutes` của các bản ghi `LESSON_PROGRESS` có hoạt động trong ngày (`last_activity_at`, fallback `created_at`).
 - `lessonsCompletedToday` = số bài học (distinct) đạt trạng thái `COMPLETED` trong ngày.
 - `streakDays` = số ngày có hoạt động học liên tiếp tính đến hôm nay (hôm nay chưa học thì tính từ hôm qua).
 - `dailyGoalMinutes` cấu hình qua `app.progress.daily-goal-minutes` (mặc định 15, env `DAILY_GOAL_MINUTES`).
 - `currentTopic*` = chủ đề đang học dở gần nhất (null nếu chưa tham gia chủ đề nào).
+- `weekStart` = ngày **Thứ Hai** của tuần hiện tại (tuần ISO, Thứ Hai → Chủ Nhật).
+- `weeklyGoalMinutes` cấu hình qua `app.progress.weekly-goal-minutes` (mặc định 90, env `WEEKLY_GOAL_MINUTES`).
+- `minutesThisWeek` = tổng số phút luyện tập từ `weekStart` đến hôm nay.
+- `previousWeekMinutes` = tổng số phút luyện tập của **cả tuần trước** (7 ngày trước `weekStart`), dùng để tính badge xu hướng `+x%` / `-x%`.
+- `daysStudiedThisWeek` = số ngày có phát sinh phút học trong tuần (0–7).
+- `weeklyDailyMinutes` = mảng **7 phần tử** số phút theo từng ngày Thứ Hai → Chủ Nhật (ngày chưa tới = 0), dùng để vẽ biểu đồ cột.
 
 **Response 200:**
 
@@ -797,7 +811,13 @@ Dùng cho khối "Tiến độ hôm nay" ở Trang chủ app.
     "studiedToday": true,
     "currentTopicId": 3,
     "currentTopicTitle": "Tiếng Anh giao tiếp cơ bản",
-    "currentTopicProgressPercent": 33.3
+    "currentTopicProgressPercent": 33.3,
+    "weekStart": "2026-11-02",
+    "weeklyGoalMinutes": 90,
+    "minutesThisWeek": 65,
+    "previousWeekMinutes": 120,
+    "daysStudiedThisWeek": 3,
+    "weeklyDailyMinutes": [20, 25, 20, 0, 0, 0, 0]
   }
 }
 ```

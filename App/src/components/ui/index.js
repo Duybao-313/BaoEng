@@ -13,5 +13,6 @@ export * from "./Icon";
 export * from "./Input";
 export * from "./LevelChip";
 export * from "./ProgressBar";
+export * from "./ProgressRing";
 export * from "./Screen";
 export * from "./Skeleton";

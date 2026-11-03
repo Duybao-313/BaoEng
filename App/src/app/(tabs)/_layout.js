@@ -6,7 +6,7 @@ import { useAuth } from "../../store/auth";
 
 const TABS = [
   { name: "index", title: "Trang chủ", icon: "home", activeIcon: "home" },
-  { name: "progress", title: "Tiến độ", icon: "insights", activeIcon: "insights" },
+  { name: "progress", title: "Tiến độ", icon: "bar-chart", activeIcon: "bar-chart" },
   {
     name: "notifications",
     title: "Thông báo",

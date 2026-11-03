@@ -32,7 +32,8 @@ src/
 │
 ├── components/                 # UI tai su dung
 │   ├── ui/                     # Primitive: Alert, Button, Card, Checkbox,
-│   │   └── index.js            #           Divider, Icon, Input, Screen
+│   │   └── index.js            #   Divider, Icon, Input, ProgressBar,
+│   │                           #   ProgressRing, Screen
 │   └── layout/                 # AppHeader (app bar dung chung moi man hinh)
 │
 ├── constants/                  # Gia tri bat bien
@@ -53,7 +54,10 @@ src/
 ├── features/                   # Module theo nghiep vu (feature-first)
 │   ├── auth/                   #   components/ (SocialSignIn) + hooks/
 │   │                           #   (useSignIn, useSignUp) + errors.js
-│   └── lesson/                 #   features/lesson/{components,hooks,api}
+│   ├── home/                   #   TodayProgressCard + hooks trang chu
+│   ├── lesson/                 #   features/lesson/{components,hooks,api}
+│   └── progress/               #   ProgressStatTiles, WeeklyPracticeChart,
+│                               #   TopicProgressCard
 │
 ├── store/                      # State toan cuc (Zustand / Redux Toolkit)
 ├── types/                      # JSDoc typedef hoac .ts khi chuyen TypeScript

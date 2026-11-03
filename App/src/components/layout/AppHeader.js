@@ -14,6 +14,7 @@ const LOGO = require("../../../assets/icon.png");
  *   title?: string,
  *   showLanguage?: boolean,
  *   showAvatar?: boolean,
+ *   streakDays?: number,
  *   onPressAvatar?: () => void,
  *   onPressSearch?: () => void,
  * }} props
@@ -22,6 +23,7 @@ export function AppHeader({
   title,
   showLanguage = true,
   showAvatar = true,
+  streakDays = 0,
   onPressAvatar,
   onPressSearch,
 }) {
@@ -42,6 +44,20 @@ export function AppHeader({
           <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>
+        ) : null}
+
+        {streakDays > 0 ? (
+          <View
+            style={styles.streakPill}
+            accessibilityLabel={`Chuỗi ${streakDays} ngày học liên tiếp`}
+          >
+            <Icon
+              name="local-fire-department"
+              size={16}
+              color={colors.tertiary}
+            />
+            <Text style={styles.streakText}>{streakDays} ngày</Text>
+          </View>
         ) : null}
 
         {onPressSearch ? (
@@ -131,6 +147,20 @@ const styles = StyleSheet.create({
     fontSize: typography.labelSm,
     fontWeight: "700",
     color: colors.text,
+  },
+  streakPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    minHeight: 36,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceContainerHigh,
+  },
+  streakText: {
+    fontSize: typography.labelSm,
+    fontWeight: "700",
+    color: colors.tertiary,
   },
   avatar: {
     width: 32,
