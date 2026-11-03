@@ -15,5 +15,8 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
 
     List<Topic> findByTitleContainingIgnoreCaseOrderByCreatedAtDesc(String title);
 
+    List<Topic> findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCaseOrderByCreatedAtDesc(
+            String title, String description);
+
     Optional<Topic> findByTopicIdAndTeacherId(Long topicId, Long teacherId);
 }

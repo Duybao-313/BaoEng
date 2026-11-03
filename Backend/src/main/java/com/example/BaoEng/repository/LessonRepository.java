@@ -13,4 +13,6 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     List<Lesson> findAllByOrderByCreatedAtDesc();
 
     List<Lesson> findByTitleContainingIgnoreCaseOrderByCreatedAtDesc(String title);
+
+    List<Lesson> findByTopicIdIn(java.util.Collection<Long> topicIds);
 }

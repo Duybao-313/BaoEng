@@ -10,6 +10,7 @@ import com.example.BaoEng.exception.ErrorCode;
 import com.example.BaoEng.repository.TeacherRepository;
 import com.example.BaoEng.repository.UserRepository;
 import com.example.BaoEng.security.UserPrincipal;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,22 +22,25 @@ public class TeacherService {
 
     private final TeacherRepository teacherRepository;
     private final UserRepository userRepository;
+    private final TeacherProfileCreator teacherProfileCreator;
 
-    public TeacherService(TeacherRepository teacherRepository, UserRepository userRepository) {
+    public TeacherService(
+            TeacherRepository teacherRepository,
+            UserRepository userRepository,
+            TeacherProfileCreator teacherProfileCreator) {
         this.teacherRepository = teacherRepository;
         this.userRepository = userRepository;
+        this.teacherProfileCreator = teacherProfileCreator;
     }
 
-    /** Lấy (hoặc tự tạo) hồ sơ giáo viên theo userId. */
-    @Transactional
+    /** Lấy (hoặc tự tạo) hồ sơ giáo viên theo userId (chống race khi gọi song song). */
     public Teacher getOrCreateTeacher(Long userId) {
         return teacherRepository.findByUserId(userId).orElseGet(() -> {
-            Teacher teacher = Teacher.builder()
-                    .userId(userId)
-                    .teacherCode("GV-" + userId)
-                    .teachingExperienceYears(0)
-                    .build();
-            return teacherRepository.save(teacher);
+            try {
+                return teacherProfileCreator.create(userId);
+            } catch (DataIntegrityViolationException e) {
+                return teacherRepository.findByUserId(userId).orElseThrow(() -> e);
+            }
         });
     }
 

@@ -22,6 +22,26 @@ export async function getTopic(id) {
   return unwrap(await request(ENDPOINTS.topics.detail(id)));
 }
 
+/**
+ * Chu de de xuat cho student (da loc theo level dang hoc, bo chu de da xong 100%).
+ * @param {number} [limit]
+ */
+export async function listRecommendedTopics(limit = 6) {
+  return unwrap(
+    await request(`${ENDPOINTS.topics.recommended}${toQuery({ limit })}`),
+  );
+}
+
+/**
+ * Chu de noi bat (nhieu luot dang ky nhat), ho tro loc level + tim kiem.
+ * @param {{ level?: string, q?: string, limit?: number }} [params]
+ */
+export async function listFeaturedTopics(params = {}) {
+  return unwrap(
+    await request(`${ENDPOINTS.topics.featured}${toQuery(params)}`),
+  );
+}
+
 /** @param {string | number} id */
 export async function enrollTopic(id) {
   return unwrap(

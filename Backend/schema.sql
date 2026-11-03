@@ -193,6 +193,17 @@ CREATE TABLE lesson_progress (
     CONSTRAINT fk_progress_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE CASCADE
 );
 
+-- Thời gian học theo phiên (client báo khi rời màn Bài học) — dùng cho "Tiến độ hôm nay".
+CREATE TABLE study_sessions (
+    session_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    student_id BIGINT NOT NULL,
+    lesson_id BIGINT NULL,
+    minutes INT NOT NULL,
+    studied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_study_sessions_student FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+    CONSTRAINT fk_study_sessions_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE SET NULL
+);
+
 CREATE TABLE comments (
     comment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     target_type ENUM('TOPIC', 'LESSON') NOT NULL,

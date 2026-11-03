@@ -6,7 +6,9 @@ import com.example.BaoEng.dto.LessonUpdateRequest;
 import com.example.BaoEng.dto.MaterialResponse;
 import com.example.BaoEng.dto.MinigameResponse;
 import com.example.BaoEng.entity.Lesson;
+import com.example.BaoEng.entity.Student;
 import com.example.BaoEng.enums.ContentStatus;
+import com.example.BaoEng.enums.Role;
 import com.example.BaoEng.exception.BusinessException;
 import com.example.BaoEng.exception.ErrorCode;
 import com.example.BaoEng.repository.LessonMaterialRepository;
@@ -17,6 +19,7 @@ import com.example.BaoEng.repository.TopicRepository;
 import com.example.BaoEng.security.UserPrincipal;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +35,8 @@ public class LessonService {
     private final LessonMaterialRepository materialRepository;
     private final MinigameRepository minigameRepository;
     private final MinigameQuestionRepository questionRepository;
+    private final StudentService studentService;
+    private final ProgressService progressService;
 
     public LessonService(
             LessonRepository lessonRepository,
@@ -39,21 +44,36 @@ public class LessonService {
             TopicService topicService,
             LessonMaterialRepository materialRepository,
             MinigameRepository minigameRepository,
-            MinigameQuestionRepository questionRepository) {
+            MinigameQuestionRepository questionRepository,
+            StudentService studentService,
+            ProgressService progressService) {
         this.lessonRepository = lessonRepository;
         this.topicRepository = topicRepository;
         this.topicService = topicService;
         this.materialRepository = materialRepository;
         this.minigameRepository = minigameRepository;
         this.questionRepository = questionRepository;
+        this.studentService = studentService;
+        this.progressService = progressService;
     }
 
-    public List<LessonResponse> list(Long topicId) {
+    public List<LessonResponse> list(Long topicId, UserPrincipal principal) {
         if (!topicRepository.existsById(topicId)) {
             throw new BusinessException(ErrorCode.TOPIC_NOT_FOUND);
         }
-        return lessonRepository.findByTopicIdOrderByOrderIndexAsc(topicId).stream()
-                .map(this::toResponseWithMinigames)
+        List<Lesson> lessons = lessonRepository.findByTopicIdOrderByOrderIndexAsc(topicId);
+
+        Map<Long, Boolean> completedByLesson = Map.of();
+        if (principal != null && principal.getRole() == Role.STUDENT) {
+            Student student = studentService.getOrCreateStudent(principal.getUserId());
+            completedByLesson = progressService.completedLessons(
+                    student.getStudentId(),
+                    lessons.stream().map(Lesson::getLessonId).toList());
+        }
+
+        Map<Long, Boolean> completed = completedByLesson;
+        return lessons.stream()
+                .map(lesson -> toResponseWithMinigames(lesson, completed.get(lesson.getLessonId())))
                 .toList();
     }
 
@@ -74,13 +94,13 @@ public class LessonService {
         return LessonResponse.fromDetail(lesson, materials, minigames);
     }
 
-    /** Ban rut gon cho danh sach: chi kem minigame de client biet bai co bai tap on tap. */
-    private LessonResponse toResponseWithMinigames(Lesson lesson) {
+    /** Ban rut gon cho danh sach: kem minigame de client biet bai co bai tap on tap. */
+    private LessonResponse toResponseWithMinigames(Lesson lesson, Boolean completed) {
         List<MinigameResponse> minigames = minigameRepository
                 .findByLessonIdOrderByCreatedAtAsc(lesson.getLessonId()).stream()
                 .map(m -> MinigameResponse.from(m, questionRepository.countByMinigameId(m.getMinigameId())))
                 .toList();
-        return LessonResponse.fromDetail(lesson, List.of(), minigames);
+        return LessonResponse.fromDetail(lesson, List.of(), minigames, completed);
     }
 
     @Transactional

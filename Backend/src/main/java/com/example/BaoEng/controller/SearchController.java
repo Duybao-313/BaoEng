@@ -24,7 +24,8 @@ public class SearchController {
     @GetMapping("/search")
     public ApiResponse<SearchResponse> search(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(value = "q", required = false) String q) {
-        return ApiResponse.ok(searchService.search(principal, q), "OK");
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "level", required = false) String level) {
+        return ApiResponse.ok(searchService.search(principal, q, level), "OK");
     }
 }

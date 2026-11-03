@@ -33,8 +33,10 @@ public class LessonController {
     }
 
     @GetMapping("/topics/{topicId}/lessons")
-    public ApiResponse<List<LessonResponse>> list(@PathVariable Long topicId) {
-        return ApiResponse.ok(lessonService.list(topicId), "OK");
+    public ApiResponse<List<LessonResponse>> list(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long topicId) {
+        return ApiResponse.ok(lessonService.list(topicId, principal), "OK");
     }
 
     @GetMapping("/lessons/{lessonId}")

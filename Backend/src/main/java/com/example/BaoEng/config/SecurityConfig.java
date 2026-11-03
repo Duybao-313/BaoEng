@@ -104,7 +104,10 @@ public class SecurityConfig {
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of(
-                "Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+                "Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With", "Range"));
+        // Cho phép client web đọc metadata của file học liệu (video/PDF phát trực tiếp).
+        config.setExposedHeaders(List.of(
+                "Content-Disposition", "Content-Length", "Content-Range", "Accept-Ranges"));
         config.setAllowCredentials(true);
         config.setMaxAge(maxAgeSeconds); // cache kết quả preflight (giây)
 
@@ -122,8 +125,11 @@ public class SecurityConfig {
     }
 
     /**
-     * Chuỗi lọc cho các endpoint Auth công khai — KHÔNG cấu hình Resource Server,
+     * Chuỗi lọc cho các endpoint công khai — KHÔNG cấu hình Resource Server,
      * vì vậy header Authorization cũ/hết hạn sẽ KHÔNG gây 401 ở các endpoint này.
+     *
+     * <p>{@code /api/v1/files/**} cũng nằm ở đây vì trình duyệt/app không gửi được
+     * header Authorization khi phát video ({@code <video src>}) hoặc mở PDF/Word.
      */
     @Bean
     @Order(1)
@@ -135,7 +141,8 @@ public class SecurityConfig {
                 AppConstants.AUTH_BASE + "/refresh",
                 AppConstants.AUTH_BASE + "/forgot-password",
                 AppConstants.AUTH_BASE + "/reset-password",
-                AppConstants.AUTH_BASE + "/verify-email"
+                AppConstants.AUTH_BASE + "/verify-email",
+                AppConstants.API_BASE + "/files/**"
             )
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())

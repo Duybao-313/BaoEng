@@ -15,6 +15,8 @@ export const ENDPOINTS = {
   },
   topics: {
     list: "/topics",
+    recommended: "/topics/recommended",
+    featured: "/topics/featured",
     detail: (id) => `/topics/${id}`,
     enroll: (id) => `/topics/${id}/enroll`,
     unenroll: (id) => `/topics/${id}/enroll`,
@@ -33,6 +35,8 @@ export const ENDPOINTS = {
   },
   progress: {
     overview: "/progress",
+    today: "/progress/today",
+    activity: "/progress/activity",
   },
   comments: {
     list: "/comments",

@@ -12,9 +12,22 @@ public record TopicResponse(
         String status,
         String teacherName,
         long lessonCount,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        /** % hoàn thành của Student hiện tại (null với Teacher/Admin). */
+        Double progressPercent,
+        /** Student đã tham gia chủ đề chưa (null với Teacher/Admin). */
+        Boolean enrolled
 ) {
     public static TopicResponse from(Topic topic, long lessonCount, String teacherName) {
+        return from(topic, lessonCount, teacherName, null, null);
+    }
+
+    public static TopicResponse from(
+            Topic topic,
+            long lessonCount,
+            String teacherName,
+            Double progressPercent,
+            Boolean enrolled) {
         return new TopicResponse(
                 topic.getTopicId(),
                 topic.getTeacherId(),
@@ -24,6 +37,8 @@ public record TopicResponse(
                 topic.getStatus().name(),
                 teacherName,
                 lessonCount,
-                topic.getCreatedAt());
+                topic.getCreatedAt(),
+                progressPercent,
+                enrolled);
     }
 }

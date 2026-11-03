@@ -14,7 +14,9 @@ public record LessonResponse(
         String status,
         LocalDateTime createdAt,
         List<MaterialResponse> materials,
-        List<MinigameResponse> minigames
+        List<MinigameResponse> minigames,
+        /** Student đã hoàn thành bài này chưa (null với Teacher/Admin). */
+        Boolean completed
 ) {
     public static LessonResponse from(Lesson lesson) {
         return fromDetail(lesson, List.of(), List.of());
@@ -24,6 +26,14 @@ public record LessonResponse(
             Lesson lesson,
             List<MaterialResponse> materials,
             List<MinigameResponse> minigames) {
+        return fromDetail(lesson, materials, minigames, null);
+    }
+
+    public static LessonResponse fromDetail(
+            Lesson lesson,
+            List<MaterialResponse> materials,
+            List<MinigameResponse> minigames,
+            Boolean completed) {
         return new LessonResponse(
                 lesson.getLessonId(),
                 lesson.getTopicId(),
@@ -33,6 +43,7 @@ public record LessonResponse(
                 lesson.getStatus().name(),
                 lesson.getCreatedAt(),
                 materials,
-                minigames);
+                minigames,
+                completed);
     }
 }

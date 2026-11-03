@@ -57,6 +57,16 @@ public class LessonProgress {
     @Builder.Default
     private BigDecimal completionPercent = BigDecimal.ZERO;
 
+    @Column(name = "time_spent_minutes", nullable = false)
+    @Builder.Default
+    private Integer timeSpentMinutes = 0;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    @Column(name = "last_activity_at")
+    private LocalDateTime lastActivityAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

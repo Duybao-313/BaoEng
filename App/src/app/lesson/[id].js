@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Linking,
   Pressable,
@@ -9,7 +9,12 @@ import {
   View,
 } from "react-native";
 
-import { getLesson, getLessonVocab } from "../../api";
+import {
+  getLesson,
+  getLessonVocab,
+  reportStudyTime,
+  resolveAssetUrl,
+} from "../../api";
 import { CommentSection } from "../../components/CommentSection";
 import {
   Button,
@@ -19,6 +24,7 @@ import {
   Skeleton,
 } from "../../components/ui";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { LessonVideoPlayer } from "../../features/lesson";
 import { useAsync } from "../../hooks";
 
 const MATERIAL_TABS = [
@@ -33,6 +39,7 @@ export default function LessonDetailScreen() {
 
   const [materialTab, setMaterialTab] = useState("VIDEO");
   const [showVocab, setShowVocab] = useState(false);
+  const [activeVideoId, setActiveVideoId] = useState(null);
 
   const { data, loading, error, run } = useAsync(async () => {
     const [lesson, vocab] = await Promise.all([
@@ -49,13 +56,30 @@ export default function LessonDetailScreen() {
   const vocab = data?.vocab ?? [];
   const materials = lesson?.materials ?? [];
   const activeMaterials = materials.filter((m) => m.type === materialTab);
+  const videoMaterials = materials.filter((m) => m.type === "VIDEO");
+  const activeVideo =
+    videoMaterials.find((m) => m.materialId === activeVideoId) ?? videoMaterials[0];
+  const activeVideoUrl = resolveAssetUrl(activeVideo?.fileUrl);
   const publishedMinigame = (lesson?.minigames ?? []).find(
     (m) => m.status === "PUBLISHED",
   );
 
   const openMaterial = (url) => {
-    if (url) Linking.openURL(url).catch(() => {});
+    const target = resolveAssetUrl(url);
+    if (target) Linking.openURL(target).catch(() => {});
   };
+
+  // Do thoi gian hoc cua phien va bao ve Backend khi roi man hinh.
+  useEffect(() => {
+    const startedAt = Date.now();
+    return () => {
+      const minutes = Math.round((Date.now() - startedAt) / 60000);
+      if (minutes < 1) return;
+      reportStudyTime({ lessonId: id, minutes: Math.min(minutes, 600) }).catch(
+        () => {},
+      );
+    };
+  }, [id]);
 
   return (
     <Screen padded={false}>
@@ -136,11 +160,60 @@ export default function LessonDetailScreen() {
             </ScrollView>
 
             {/* Vung player / hoc lieu */}
-            {activeMaterials.length === 0 ? (
+            {materialTab === "VIDEO" ? (
+              activeVideoUrl ? (
+                <View style={styles.videoSection}>
+                  <LessonVideoPlayer uri={activeVideoUrl} />
+                  {videoMaterials.length > 1 ? (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.videoList}
+                    >
+                      {videoMaterials.map((material, index) => {
+                        const active =
+                          material.materialId === activeVideo?.materialId;
+                        return (
+                          <Pressable
+                            key={material.materialId}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Xem video ${index + 1}`}
+                            onPress={() => setActiveVideoId(material.materialId)}
+                            style={[
+                              styles.videoChip,
+                              active ? styles.videoChipActive : null,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.videoChipLabel,
+                                active ? styles.videoChipLabelActive : null,
+                              ]}
+                            >
+                              Video {index + 1}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  ) : null}
+                </View>
+              ) : (
+                <View style={styles.playerPlaceholder}>
+                  <Icon name="ondemand-video" size={40} color={colors.textMuted} />
+                  <Text style={styles.playerPlaceholderText}>
+                    {videoMaterials.length === 0
+                      ? "Chưa có học liệu Video"
+                      : "Video chưa sẵn sàng để phát"}
+                  </Text>
+                </View>
+              )
+            ) : activeMaterials.length === 0 ? (
               <View style={styles.playerPlaceholder}>
-                <Icon name="ondemand-video" size={40} color={colors.textMuted} />
+                <Icon name="description" size={40} color={colors.textMuted} />
                 <Text style={styles.playerPlaceholderText}>
-                  Chưa có học liệu {MATERIAL_TABS.find((t) => t.key === materialTab)?.label}
+                  Chưa có học liệu{" "}
+                  {MATERIAL_TABS.find((t) => t.key === materialTab)?.label}
                 </Text>
               </View>
             ) : (
@@ -152,21 +225,11 @@ export default function LessonDetailScreen() {
                   style={styles.playerPlaceholder}
                 >
                   <Icon
-                    name={
-                      materialTab === "VIDEO"
-                        ? "play-circle-outline"
-                        : materialTab === "PDF"
-                          ? "picture-as-pdf"
-                          : "description"
-                    }
+                    name={materialTab === "PDF" ? "picture-as-pdf" : "description"}
                     size={40}
                     color={colors.primary}
                   />
-                  <Text style={styles.playerText}>
-                    {material.type === "VIDEO"
-                      ? "Mở video bài học"
-                      : "Mở tài liệu bài học"}
-                  </Text>
+                  <Text style={styles.playerText}>Mở tài liệu bài học</Text>
                 </Pressable>
               ))
             )}
@@ -306,6 +369,26 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.primary,
   },
+  videoSection: { gap: spacing.sm },
+  videoList: { gap: spacing.sm },
+  videoChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  videoChipActive: {
+    backgroundColor: colors.primaryContainer,
+    borderColor: colors.primaryContainer,
+  },
+  videoChipLabel: {
+    fontSize: typography.labelLg,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  videoChipLabelActive: { color: colors.onPrimary },
   minigameCard: {
     flexDirection: "row",
     alignItems: "center",

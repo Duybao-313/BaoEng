@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,27 +15,61 @@ import { TopicCard } from "../components/TopicCard";
 import {
   Button,
   EmptyState,
+  HighlightedText,
   Icon,
   Screen,
   Skeleton,
 } from "../components/ui";
 import { colors, radius, spacing, typography } from "../constants/theme";
-import { useAsync } from "../hooks";
+import { useAsync, useDebouncedValue } from "../hooks";
+import { addRecentSearch } from "../utils";
+
+const LEVELS = [
+  { key: null, label: "Tất cả" },
+  { key: "BEGINNER", label: "Beginner" },
+  { key: "INTERMEDIATE", label: "Intermediate" },
+  { key: "ADVANCED", label: "Advanced" },
+];
 
 export default function SearchScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [q, setQ] = useState(params.q ?? "");
-  const [query, setQuery] = useState(params.q ?? "");
+  const [level, setLevel] = useState(null);
+  // Chi goi API sau khi nguoi dung ngung go 350ms.
+  const query = useDebouncedValue(q.trim(), 350);
+  const lastQueryRef = useRef("");
 
   const { data, loading, error, run } = useAsync(
-    () => (query.trim() ? search({ q: query.trim() }) : Promise.resolve(null)),
-    { deps: [query] },
+    () =>
+      query
+        ? search({ q: query, level: level ?? undefined })
+        : Promise.resolve(null),
+    { deps: [query, level] },
+  );
+
+  // Roi man tim kiem => luu tu khoa cuoi cung vao lich su tim gan day.
+  useEffect(() => {
+    if (query) lastQueryRef.current = query;
+  }, [query]);
+
+  useEffect(
+    () => () => {
+      if (lastQueryRef.current) addRecentSearch(lastQueryRef.current);
+    },
+    [],
   );
 
   const topics = data?.topics ?? [];
   const lessons = data?.lessons ?? [];
-  const hasQuery = Boolean(query.trim());
+  const hasQuery = Boolean(query);
+  const hasFilter = Boolean(level);
+  const noResults = topics.length === 0 && lessons.length === 0;
+
+  const resetFilters = () => {
+    setQ("");
+    setLevel(null);
+  };
 
   return (
     <Screen padded={false}>
@@ -48,7 +83,7 @@ export default function SearchScreen() {
             placeholderTextColor={colors.outline}
             value={q}
             onChangeText={setQ}
-            onSubmitEditing={() => setQuery(q.trim())}
+            onSubmitEditing={() => Keyboard.dismiss()}
             returnKeyType="search"
             autoFocus={!q}
             autoCorrect={false}
@@ -58,10 +93,7 @@ export default function SearchScreen() {
               accessibilityRole="button"
               accessibilityLabel="Xóa tìm kiếm"
               hitSlop={8}
-              onPress={() => {
-                setQ("");
-                setQuery("");
-              }}
+              onPress={() => setQ("")}
             >
               <Icon name="close" size={18} color={colors.textMuted} />
             </Pressable>
@@ -80,6 +112,35 @@ export default function SearchScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Bo loc level cho ket qua */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chips}
+        >
+          {LEVELS.map((item) => {
+            const active = level === item.key;
+            return (
+              <Pressable
+                key={item.key ?? "all"}
+                accessibilityRole="button"
+                accessibilityLabel={`Lọc ${item.label}`}
+                onPress={() => setLevel(item.key)}
+                style={[styles.chip, active ? styles.chipActive : null]}
+              >
+                <Text
+                  style={[
+                    styles.chipLabel,
+                    active ? styles.chipLabelActive : null,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
         {!hasQuery ? (
           <EmptyState
             icon="search"
@@ -112,16 +173,33 @@ export default function SearchScreen() {
           </View>
         ) : null}
 
-        {hasQuery &&
-        !loading &&
-        !error &&
-        topics.length === 0 &&
-        lessons.length === 0 ? (
-          <EmptyState
-            icon="search-off"
-            title="Không tìm thấy kết quả"
-            message={`Không có nội dung nào khớp với "${query}".`}
-          />
+        {hasQuery && !loading && !error && noResults ? (
+          <View style={styles.stateBox}>
+            <EmptyState
+              icon="search"
+              title="Không tìm thấy kết quả"
+              message={
+                hasFilter
+                  ? `Không có nội dung nào khớp với "${query}" ở cấp độ đã chọn.`
+                  : `Không có nội dung nào khớp với "${query}".`
+              }
+            />
+            {hasFilter ? (
+              <Button
+                label="Bỏ lọc cấp độ"
+                variant="outline"
+                icon="close"
+                onPress={() => setLevel(null)}
+              />
+            ) : (
+              <Button
+                label="Xóa từ khóa"
+                variant="outline"
+                icon="close"
+                onPress={resetFilters}
+              />
+            )}
+          </View>
         ) : null}
 
         {hasQuery && !loading && !error && topics.length > 0 ? (
@@ -131,6 +209,7 @@ export default function SearchScreen() {
               <TopicCard
                 key={topic.topicId}
                 topic={topic}
+                highlight={query}
                 onPress={() =>
                   router.push({
                     pathname: "/topic/[id]",
@@ -158,9 +237,12 @@ export default function SearchScreen() {
                 style={styles.lessonRow}
               >
                 <Icon name="menu-book" size={20} color={colors.primary} />
-                <Text style={styles.lessonTitle} numberOfLines={1}>
-                  {lesson.title}
-                </Text>
+                <HighlightedText
+                  text={lesson.title}
+                  keyword={query}
+                  style={styles.lessonTitle}
+                  numberOfLines={1}
+                />
                 <Icon name="chevron-right" size={20} color={colors.textMuted} />
               </Pressable>
             ))}
@@ -200,6 +282,28 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
   },
+  chips: {
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipActive: {
+    backgroundColor: colors.primaryContainer,
+    borderColor: colors.primaryContainer,
+  },
+  chipLabel: {
+    fontSize: typography.labelLg,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  chipLabelActive: { color: colors.onPrimary },
   skeletons: { gap: spacing.md },
   stateBox: { gap: spacing.md },
   section: { gap: spacing.md },

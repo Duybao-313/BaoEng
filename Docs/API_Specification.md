@@ -354,6 +354,12 @@ Backend cho phép client **web** gọi API từ origin khác. App mobile native 
 
 **Query params:** `level=BEGINNER|INTERMEDIATE|ADVANCED`, `q=<từ khóa>`, `page`, `size`, `sort=createdAt,desc`
 
+> Backend lọc `level` và `q` (khớp `title` hoặc `description`, không phân biệt hoa/thường) trực tiếp trong `GET /topics`.
+> Giá trị `level` không hợp lệ trả về lỗi `VALIDATION_ERROR`.
+>
+> Với **Student**, mỗi topic còn có `progressPercent` (0–100) và `enrolled` — tính theo bản ghi
+> `LESSON_PROGRESS` mới nhất của từng bài học. Với Teacher/Admin hai field này là `null`.
+
 **Response 200:**
 
 ```json
@@ -368,7 +374,8 @@ Backend cho phép client **web** gọi API từ origin khác. App mobile native 
         "level": "BEGINNER",
         "teacherName": "Teacher John",
         "lessonCount": 10,
-        "progressPercent": 40.0
+        "progressPercent": 40.0,
+        "enrolled": true
       }
     ],
     "page": 0,
@@ -379,7 +386,26 @@ Backend cho phép client **web** gọi API từ origin khác. App mobile native 
 }
 ```
 
-### 4.2. `POST /topics` — Tạo chủ đề (Teacher)
+### 4.2. `GET /topics/recommended` — Chủ đề đề xuất (Student)
+
+Dùng cho khối "Chủ đề đề xuất cho bạn" ở Trang chủ app.
+
+- **Query params:** `limit` (mặc định 6, tối đa 20)
+- Chỉ lấy chủ đề `PUBLISHED` và **chưa hoàn thành 100%**.
+- Thứ tự ưu tiên: chưa tham gia → cùng level với chủ đề đang học → level gần nhất (ưu tiên level thấp hơn)
+  → nhiều lượt đăng ký → mới nhất.
+- Mỗi phần tử có `progressPercent` + `enrolled` như `GET /topics`.
+- **Response 200:** mảng topic (cùng cấu trúc `TopicResponse`).
+
+### 4.3. `GET /topics/featured` — Chủ đề nổi bật
+
+Dùng cho khối "Tất cả chủ đề nổi bật" và trang danh sách đầy đủ.
+
+- **Query params:** `level`, `q`, `limit` (mặc định 10, tối đa 20)
+- Chỉ lấy chủ đề `PUBLISHED`; sắp xếp theo lượt đăng ký (không tính `DROPPED`) → số bài học → mới nhất.
+- Teacher chỉ thấy chủ đề của mình; Student thấy toàn bộ kèm `progressPercent`/`enrolled`.
+
+### 4.4. `POST /topics` — Tạo chủ đề (Teacher)
 
 **Request:**
 
@@ -437,7 +463,13 @@ Backend cho phép client **web** gọi API từ origin khác. App mobile native 
 | `PUT`    | `/lessons/{lessonId}`       | Teacher                 | Cập nhật bài học                          |     🔒     |
 | `DELETE` | `/lessons/{lessonId}`       | Teacher                 | Xóa bài học                               |     🔒     |
 
-### 5.1. `POST /topics/{topicId}/lessons` — Tạo bài học (Teacher)
+### 5.1. `GET /topics/{topicId}/lessons` — Danh sách bài học
+
+- Mỗi bài kèm mảng `minigames` (để client biết bài có bài tập ôn tập).
+- Với **Student**, mỗi bài có thêm `completed` (true/false) lấy từ bản ghi `LESSON_PROGRESS`
+  mới nhất — dùng để hiển thị dấu ✓ trong màn Chi tiết chủ đề. Teacher/Admin nhận `null`.
+
+### 5.2. `POST /topics/{topicId}/lessons` — Tạo bài học (Teacher)
 
 **Request:**
 
@@ -451,7 +483,7 @@ Backend cho phép client **web** gọi API từ origin khác. App mobile native 
 
 **Response 201:** đối tượng lesson đã tạo (kèm `lessonId`, `topicId`).
 
-### 5.2. `GET /lessons/{lessonId}` — Chi tiết bài học
+### 5.3. `GET /lessons/{lessonId}` — Chi tiết bài học
 
 **Response 200:**
 
@@ -465,8 +497,8 @@ Backend cho phép client **web** gọi API từ origin khác. App mobile native 
     "orderIndex": 1,
     "completionThreshold": 80.0,
     "materials": [
-      { "materialId": 42, "type": "VIDEO", "fileUrl": "<signed-url>" },
-      { "materialId": 43, "type": "PDF", "fileUrl": "<signed-url>" }
+      { "materialId": 42, "type": "VIDEO", "fileUrl": "/api/v1/files/<uuid>.mp4" },
+      { "materialId": 43, "type": "PDF", "fileUrl": "/api/v1/files/<uuid>.pdf" }
     ],
     "minigames": [
       {
@@ -490,6 +522,12 @@ Backend cho phép client **web** gọi API từ origin khác. App mobile native 
 | `GET`    | `/lessons/{lessonId}/materials` | Student, Teacher, Admin | Danh sách học liệu                    |     🔒     |
 | `POST`   | `/lessons/{lessonId}/materials` | Teacher                 | Upload học liệu (multipart/form-data) |     🔒     |
 | `DELETE` | `/materials/{materialId}`       | Teacher                 | Xóa học liệu                          |     🔒     |
+| `GET`    | `/files/{filename}`             | Public (UUID khó đoán)  | Phát trực tiếp file học liệu          |     🔓     |
+
+> `GET /files/{filename}` trả về đúng `Content-Type` (ví dụ `video/mp4`, `application/pdf`),
+> hỗ trợ `Range` (HTTP 206) để tua video, và **không yêu cầu JWT** vì trình duyệt
+> (`<video src>`) hoặc app mobile không gửi được header `Authorization` khi phát file.
+> URL tuyệt đối = `API_BASE_URL` gốc + `fileUrl` (ví dụ `http://localhost:8080` + `/api/v1/files/xxx.mp4`).
 
 ### 6.1. `POST /lessons/{lessonId}/materials` — Upload học liệu
 
@@ -735,7 +773,51 @@ Backend cho phép client **web** gọi API từ origin khác. App mobile native 
 }
 ```
 
-### 9.2. `GET /topics/{topicId}/progress` — Tiến độ theo chủ đề
+### 9.2. `GET /progress/today` — Tiến độ học trong ngày
+
+Dùng cho khối "Tiến độ hôm nay" ở Trang chủ app.
+
+- `minutesToday` = tổng `time_spent_minutes` của các bản ghi `LESSON_PROGRESS` có hoạt động trong ngày (`last_activity_at`, fallback `created_at`).
+- `lessonsCompletedToday` = số bài học (distinct) đạt trạng thái `COMPLETED` trong ngày.
+- `streakDays` = số ngày có hoạt động học liên tiếp tính đến hôm nay (hôm nay chưa học thì tính từ hôm qua).
+- `dailyGoalMinutes` cấu hình qua `app.progress.daily-goal-minutes` (mặc định 15, env `DAILY_GOAL_MINUTES`).
+- `currentTopic*` = chủ đề đang học dở gần nhất (null nếu chưa tham gia chủ đề nào).
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "date": "2026-11-03",
+    "dailyGoalMinutes": 15,
+    "minutesToday": 20,
+    "lessonsCompletedToday": 1,
+    "streakDays": 4,
+    "studiedToday": true,
+    "currentTopicId": 3,
+    "currentTopicTitle": "Tiếng Anh giao tiếp cơ bản",
+    "currentTopicProgressPercent": 33.3
+  }
+}
+```
+
+### 9.3. `POST /progress/activity` — Ghi nhận thời gian học
+
+Client gọi khi rời màn Bài học (hoặc khi app chuyển nền) để cộng phút học vào "Tiến độ hôm nay".
+
+**Request:**
+
+```json
+{ "lessonId": 15, "minutes": 12 }
+```
+
+- `minutes`: bắt buộc, `1..600`.
+- `lessonId`: tùy chọn (null nếu không xác định).
+
+**Response 200:** chính là payload của `GET /progress/today` sau khi cộng thêm phiên vừa ghi.
+
+### 9.4. `GET /topics/{topicId}/progress` — Tiến độ theo chủ đề
 
 **Response 200:** đối tượng topic kèm `progressPercent`, `completedLessons`, `totalLessons`.
 
@@ -825,8 +907,9 @@ Backend cho phép client **web** gọi API từ origin khác. App mobile native 
 
 ### 11.1. `GET /search` — Tìm kiếm chủ đề/bài học
 
-- **Query params:** `q` (từ khóa bắt buộc), `page`, `size`
-- **Mô tả:** Tìm kiếm theo tên chủ đề và bài học, thời gian phản hồi ≤ 2 giây.
+- **Query params:** `q` (từ khóa bắt buộc), `level=BEGINNER|INTERMEDIATE|ADVANCED`, `page`, `size`
+- **Mô tả:** Tìm kiếm theo **tên hoặc mô tả chủ đề** và **tên bài học** (không phân biệt hoa/thường), thời gian phản hồi ≤ 2 giây. Giáo viên chỉ thấy nội dung do mình tạo.
+- `level` (tùy chọn) lọc cả chủ đề **và** bài học thuộc chủ đề ở cấp độ đó; giá trị sai trả `VALIDATION_ERROR`.
 
 **Response 200:**
 

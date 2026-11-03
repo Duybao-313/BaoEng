@@ -1,8 +1,14 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { enrollTopic, getTopic, getTopicProgress, listTopicLessons } from "../../api";
+import {
+  enrollTopic,
+  getTopic,
+  getTopicProgress,
+  listTopicLessons,
+  unenrollTopic,
+} from "../../api";
 import { CommentSection } from "../../components/CommentSection";
 import { LessonRow } from "../../components/LessonRow";
 import {
@@ -25,6 +31,8 @@ export default function TopicDetailScreen() {
   const [justEnrolled, setJustEnrolled] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState(null);
+  const [leaving, setLeaving] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   const { data, loading, error, run } = useAsync(async () => {
     const [topic, lessons] = await Promise.all([
@@ -50,9 +58,10 @@ export default function TopicDetailScreen() {
   const lessons = data?.lessons ?? [];
   const progress = data?.progress ?? topic;
 
-  // `enrolled` duoc suy ra tu du lieu server (progress.enrolled), ket hop
-  // trang thai optimistic sau khi nguoi dung bam "Tham gia".
-  const enrolled = Boolean(progress?.enrolled) || justEnrolled;
+  // `enrolled` lay tu server (topic.enrolled / progress.enrolled), ket hop
+  // trang thai optimistic sau khi nguoi dung bam "Tham gia" hoac "Roi chu de".
+  const enrolled = Boolean(topic?.enrolled ?? progress?.enrolled) || justEnrolled;
+  const nextLesson = lessons.find((lesson) => !lesson.completed) ?? lessons[0];
 
   const handleEnroll = async () => {
     setEnrolling(true);
@@ -71,6 +80,24 @@ export default function TopicDetailScreen() {
       setEnrolling(false);
     }
   };
+
+  const handleLeave = async () => {
+    setLeaving(true);
+    setEnrollError(null);
+    try {
+      await unenrollTopic(id);
+      setJustEnrolled(false);
+      setConfirmLeave(false);
+      run().catch(() => {});
+    } catch (err) {
+      setEnrollError(err?.message ?? "Không thể rời chủ đề. Vui lòng thử lại.");
+    } finally {
+      setLeaving(false);
+    }
+  };
+
+  const openLesson = (lesson) =>
+    router.push({ pathname: "/lesson/[id]", params: { id: lesson.lessonId } });
 
   return (
     <Screen padded={false}>
@@ -169,21 +196,56 @@ export default function TopicDetailScreen() {
                     key={lesson.lessonId ?? index}
                     index={index}
                     lesson={lesson}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/lesson/[id]",
-                        params: { id: lesson.lessonId },
-                      })
-                    }
+                    onPress={() => openLesson(lesson)}
                   />
                 ))}
               </View>
             )}
 
             {enrolled ? (
-              <View style={styles.joinedNote}>
-                <Icon name="check-circle" size={18} color={colors.secondary} />
-                <Text style={styles.joinedText}>Đã tham gia chủ đề</Text>
+              <View style={styles.joinedBox}>
+                {nextLesson ? (
+                  <Button
+                    label={
+                      lessons.some((lesson) => lesson.completed)
+                        ? "Tiếp tục học"
+                        : "Bắt đầu học"
+                    }
+                    icon="play-circle-outline"
+                    onPress={() => openLesson(nextLesson)}
+                  />
+                ) : null}
+                <View style={styles.joinedNote}>
+                  <Icon name="check-circle" size={18} color={colors.secondary} />
+                  <Text style={styles.joinedText}>Đã tham gia chủ đề</Text>
+                </View>
+                {confirmLeave ? (
+                  <View style={styles.confirmRow}>
+                    <Text style={styles.confirmText}>Rời chủ đề này?</Text>
+                    <Button
+                      label={leaving ? "Đang rời..." : "Rời"}
+                      variant="outline"
+                      fullWidth={false}
+                      loading={leaving}
+                      onPress={handleLeave}
+                    />
+                    <Button
+                      label="Hủy"
+                      variant="ghost"
+                      fullWidth={false}
+                      onPress={() => setConfirmLeave(false)}
+                    />
+                  </View>
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Rời chủ đề"
+                    hitSlop={8}
+                    onPress={() => setConfirmLeave(true)}
+                  >
+                    <Text style={styles.leaveLink}>Rời chủ đề</Text>
+                  </Pressable>
+                )}
               </View>
             ) : (
               <Button
@@ -293,6 +355,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
     paddingVertical: spacing.sm,
+  },
+  joinedBox: { gap: spacing.sm },
+  confirmRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  confirmText: {
+    fontSize: typography.bodyMd,
+    color: colors.textMuted,
+  },
+  leaveLink: {
+    textAlign: "center",
+    fontSize: typography.labelLg,
+    fontWeight: "600",
+    color: colors.danger,
+    paddingVertical: spacing.xs,
   },
   joinedText: {
     fontSize: typography.labelLg,

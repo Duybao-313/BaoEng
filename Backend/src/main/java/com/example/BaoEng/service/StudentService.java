@@ -1,11 +1,12 @@
 package com.example.BaoEng.service;
 
 import com.example.BaoEng.entity.Student;
+import com.example.BaoEng.exception.BusinessException;
+import com.example.BaoEng.exception.ErrorCode;
 import com.example.BaoEng.repository.StudentRepository;
+import com.example.BaoEng.repository.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Quản lý hồ sơ học sinh — ánh xạ user_id -> student_id (tự tạo hàng students nếu thiếu).
@@ -14,28 +15,33 @@ import org.springframework.transaction.annotation.Transactional;
 public class StudentService {
 
     private final StudentRepository studentRepository;
+    private final UserRepository userRepository;
+    private final StudentProfileCreator studentProfileCreator;
 
-    public StudentService(StudentRepository studentRepository) {
+    public StudentService(
+            StudentRepository studentRepository,
+            UserRepository userRepository,
+            StudentProfileCreator studentProfileCreator) {
         this.studentRepository = studentRepository;
+        this.userRepository = userRepository;
+        this.studentProfileCreator = studentProfileCreator;
     }
 
     /**
      * Lấy (hoặc tự tạo) hồ sơ học sinh theo userId.
-     * Dùng REQUIRES_NEW để việc tạo hồ sơ không bị ảnh hưởng bởi transaction gọi nó,
-     * đồng thời chống race khi hai request enroll đầu tiên chạy song song.
+     *
+     * Việc tạo chạy trong transaction riêng; nếu request khác vừa tạo cùng userId
+     * (Trang chủ gọi nhiều API song song) thì đọc lại bản ghi đã commit thay vì lỗi 500.
+     * Token của tài khoản đã bị xoá => báo USER_NOT_FOUND thay vì lỗi FK.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Student getOrCreateStudent(Long userId) {
         return studentRepository.findByUserId(userId).orElseGet(() -> {
             try {
-                Student student = Student.builder()
-                        .userId(userId)
-                        .studentCode("SV-" + userId)
-                        .build();
-                return studentRepository.save(student);
+                return studentProfileCreator.create(userId);
             } catch (DataIntegrityViolationException e) {
-                // Race: luồng khác vừa tạo student — đọc lại bản ghi đã commit.
-                return studentRepository.findByUserId(userId).orElseThrow(() -> e);
+                return studentRepository.findByUserId(userId).orElseThrow(() -> userRepository.existsById(userId)
+                        ? e
+                        : new BusinessException(ErrorCode.USER_NOT_FOUND));
             }
         });
     }

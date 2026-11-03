@@ -8,6 +8,7 @@ export * from "./Card";
 export * from "./Checkbox";
 export * from "./Divider";
 export * from "./EmptyState";
+export * from "./HighlightedText";
 export * from "./Icon";
 export * from "./Input";
 export * from "./LevelChip";

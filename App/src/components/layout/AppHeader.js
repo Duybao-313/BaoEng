@@ -15,6 +15,7 @@ const LOGO = require("../../../assets/icon.png");
  *   showLanguage?: boolean,
  *   showAvatar?: boolean,
  *   onPressAvatar?: () => void,
+ *   onPressSearch?: () => void,
  * }} props
  */
 export function AppHeader({
@@ -22,6 +23,7 @@ export function AppHeader({
   showLanguage = true,
   showAvatar = true,
   onPressAvatar,
+  onPressSearch,
 }) {
   // TODO: noi vao i18n that su khi bo sung da ngon ngu.
   const [language, setLanguage] = useState("VN");
@@ -40,6 +42,20 @@ export function AppHeader({
           <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>
+        ) : null}
+
+        {onPressSearch ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tìm kiếm nội dung học"
+            onPress={onPressSearch}
+            style={({ pressed }) => [
+              styles.pill,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Icon name="search" size={18} color={colors.primary} />
+          </Pressable>
         ) : null}
 
         {showLanguage ? (

@@ -93,6 +93,21 @@ function safeJsonParse(text) {
   }
 }
 
+/** Origin cua Backend, bo hau to `/api/v1`. */
+const API_ORIGIN = API_BASE_URL.replace(/\/+$/, "").replace(/\/api\/v1$/, "");
+
+/**
+ * Chuyen `fileUrl` tuong doi tu Backend (`/api/v1/files/...`) thanh URL tuyet doi
+ * de trinh duyet hoac app he dieu hanh mo truc tiep (video, PDF, Word).
+ * @param {string | null | undefined} path
+ * @returns {string | null}
+ */
+export function resolveAssetUrl(path) {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_ORIGIN}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
 /**
  * Lay phan `data` tu envelope chuan `{ success, data, message }`.
  * @param {any} payload

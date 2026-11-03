@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,8 +35,28 @@ public class TopicController {
     }
 
     @GetMapping
-    public ApiResponse<List<TopicResponse>> list(@AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.ok(topicService.list(principal), "OK");
+    public ApiResponse<List<TopicResponse>> list(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(value = "level", required = false) String level,
+            @RequestParam(value = "q", required = false) String q) {
+        return ApiResponse.ok(topicService.list(principal, level, q), "OK");
+    }
+
+    @GetMapping("/recommended")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ApiResponse<List<TopicResponse>> recommended(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(value = "limit", required = false) Integer limit) {
+        return ApiResponse.ok(topicService.recommended(principal, limit), "OK");
+    }
+
+    @GetMapping("/featured")
+    public ApiResponse<List<TopicResponse>> featured(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(value = "level", required = false) String level,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "limit", required = false) Integer limit) {
+        return ApiResponse.ok(topicService.featured(principal, level, q, limit), "OK");
     }
 
     @GetMapping("/{topicId}")

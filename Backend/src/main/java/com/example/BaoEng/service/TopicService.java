@@ -21,7 +21,12 @@ import com.example.BaoEng.repository.TeacherRepository;
 import com.example.BaoEng.repository.TopicRepository;
 import com.example.BaoEng.repository.UserRepository;
 import com.example.BaoEng.security.UserPrincipal;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +37,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class TopicService {
 
+    private static final int DEFAULT_RECOMMENDED_LIMIT = 6;
+    private static final int DEFAULT_FEATURED_LIMIT = 10;
+    private static final int MAX_LIMIT = 20;
+
     private final TopicRepository topicRepository;
     private final LessonRepository lessonRepository;
     private final TeacherService teacherService;
@@ -39,6 +48,7 @@ public class TopicService {
     private final UserRepository userRepository;
     private final StudentService studentService;
     private final EnrollmentRepository enrollmentRepository;
+    private final ProgressService progressService;
 
     public TopicService(
             TopicRepository topicRepository,
@@ -47,7 +57,8 @@ public class TopicService {
             TeacherRepository teacherRepository,
             UserRepository userRepository,
             StudentService studentService,
-            EnrollmentRepository enrollmentRepository) {
+            EnrollmentRepository enrollmentRepository,
+            ProgressService progressService) {
         this.topicRepository = topicRepository;
         this.lessonRepository = lessonRepository;
         this.teacherService = teacherService;
@@ -55,9 +66,16 @@ public class TopicService {
         this.userRepository = userRepository;
         this.studentService = studentService;
         this.enrollmentRepository = enrollmentRepository;
+        this.progressService = progressService;
     }
 
-    public List<TopicResponse> list(UserPrincipal principal) {
+    /**
+     * Danh sach chu de, ho tro loc theo level va tim kiem theo tu khoa (title/description).
+     *
+     * @param level BEGINNER | INTERMEDIATE | ADVANCED (null/rong = tat ca)
+     * @param q     tu khoa tim kiem (null/rong = khong loc)
+     */
+    public List<TopicResponse> list(UserPrincipal principal, String level, String q) {
         List<Topic> topics;
         if (principal.getRole() == Role.TEACHER) {
             Teacher teacher = teacherService.getOrCreateTeacher(principal.getUserId());
@@ -65,13 +83,200 @@ public class TopicService {
         } else {
             topics = topicRepository.findAllByOrderByCreatedAtDesc();
         }
-        return topics.stream().map(this::toResponse).toList();
+
+        List<Topic> filtered = filterTopics(topics, level, q);
+        if (principal.getRole() == Role.TEACHER) {
+            return filtered.stream().map(this::toResponse).toList();
+        }
+
+        Student student = studentService.getOrCreateStudent(principal.getUserId());
+        Map<Long, Double> progressByTopic = progressService.topicProgressPercents(
+                student.getStudentId(), filtered.stream().map(Topic::getTopicId).toList());
+        Set<Long> enrolledTopicIds = progressService.enrolledTopicIds(student.getStudentId());
+
+        return filtered.stream()
+                .map(topic -> toResponse(
+                        topic,
+                        progressByTopic.get(topic.getTopicId()),
+                        enrolledTopicIds.contains(topic.getTopicId())))
+                .toList();
+    }
+
+    /**
+     * Chủ đề đề xuất cho Student (khối "Chủ đề đề xuất cho bạn" ở Trang chủ).
+     * Ưu tiên: chưa tham gia > cùng level với chủ đề đang học > level gần nhất >
+     * nhiều lượt đăng ký > mới nhất. Bỏ qua chủ đề đã hoàn thành 100%.
+     */
+    public List<TopicResponse> recommended(UserPrincipal principal, Integer limit) {
+        Student student = studentService.getOrCreateStudent(principal.getUserId());
+        int size = normalizeLimit(limit, DEFAULT_RECOMMENDED_LIMIT);
+        Long studentId = student.getStudentId();
+
+        List<Topic> published = topicRepository.findAllByOrderByCreatedAtDesc().stream()
+                .filter(topic -> topic.getStatus() == ContentStatus.PUBLISHED)
+                .toList();
+        if (published.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Double> progressByTopic = progressService.topicProgressPercents(
+                studentId, published.stream().map(Topic::getTopicId).toList());
+        Set<Long> enrolledTopicIds = progressService.enrolledTopicIds(studentId);
+        Map<Long, Long> popularity = popularityByTopic();
+        Level currentLevel = currentTopicLevel(studentId);
+
+        List<Topic> candidates = published.stream()
+                .filter(topic -> progressByTopic.getOrDefault(topic.getTopicId(), 0.0) < 100.0)
+                .sorted(recommendationOrder(currentLevel, enrolledTopicIds, popularity))
+                .limit(size)
+                .toList();
+
+        return toResponses(candidates, progressByTopic, enrolledTopicIds);
+    }
+
+    /**
+     * Chủ đề nổi bật (khối "Tất cả chủ đề nổi bật" ở Trang chủ).
+     * Sắp theo lượt đăng ký > số bài học > mới nhất; chỉ lấy chủ đề đã xuất bản.
+     * Hỗ trợ lọc `level` và tìm `q` để tái sử dụng cho trang danh sách đầy đủ.
+     */
+    public List<TopicResponse> featured(UserPrincipal principal, String level, String q, Integer limit) {
+        int size = normalizeLimit(limit, DEFAULT_FEATURED_LIMIT);
+
+        List<Topic> base;
+        if (principal.getRole() == Role.TEACHER) {
+            Teacher teacher = teacherService.getOrCreateTeacher(principal.getUserId());
+            base = topicRepository.findByTeacherIdOrderByCreatedAtDesc(teacher.getTeacherId());
+        } else {
+            base = topicRepository.findAllByOrderByCreatedAtDesc();
+        }
+
+        List<Topic> published = base.stream()
+                .filter(topic -> topic.getStatus() == ContentStatus.PUBLISHED)
+                .toList();
+        List<Topic> filtered = filterTopics(published, level, q);
+        if (filtered.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Long> popularity = popularityByTopic();
+        Map<Long, Long> lessonCounts = lessonCountByTopic(filtered);
+        List<Topic> ordered = filtered.stream()
+                .sorted(Comparator
+                        .comparing((Topic topic) -> popularity.getOrDefault(topic.getTopicId(), 0L))
+                        .reversed()
+                        .thenComparing(
+                                (Topic topic) -> lessonCounts.getOrDefault(topic.getTopicId(), 0L),
+                                Comparator.reverseOrder())
+                        .thenComparing(Topic::getCreatedAt, Comparator.reverseOrder()))
+                .limit(size)
+                .toList();
+
+        if (principal.getRole() == Role.TEACHER) {
+            return ordered.stream().map(this::toResponse).toList();
+        }
+
+        Student student = studentService.getOrCreateStudent(principal.getUserId());
+        Map<Long, Double> progressByTopic = progressService.topicProgressPercents(
+                student.getStudentId(), ordered.stream().map(Topic::getTopicId).toList());
+        return toResponses(ordered, progressByTopic, progressService.enrolledTopicIds(student.getStudentId()));
+    }
+
+    private Comparator<Topic> recommendationOrder(
+            Level currentLevel, Set<Long> enrolledTopicIds, Map<Long, Long> popularity) {
+        return Comparator
+                .comparing((Topic topic) -> enrolledTopicIds.contains(topic.getTopicId()) ? 1 : 0)
+                .thenComparing(topic -> levelDistance(currentLevel, topic.getLevel()))
+                .thenComparing(
+                        (Topic topic) -> popularity.getOrDefault(topic.getTopicId(), 0L),
+                        Comparator.reverseOrder())
+                .thenComparing(Topic::getCreatedAt, Comparator.reverseOrder());
+    }
+
+    /** 0 = cùng level (hoặc chưa học chủ đề nào), ưu tiên level thấp hơn level cao hơn. */
+    private int levelDistance(Level current, Level candidate) {
+        if (current == null || candidate == null) {
+            return 0;
+        }
+        int gap = Math.abs(candidate.ordinal() - current.ordinal());
+        if (gap == 0) {
+            return 0;
+        }
+        return gap * 2 + (candidate.ordinal() < current.ordinal() ? 0 : 1);
+    }
+
+    private Level currentTopicLevel(Long studentId) {
+        var current = progressService.currentInProgressTopic(studentId);
+        if (current == null) {
+            return null;
+        }
+        return topicRepository.findById(current.topicId()).map(Topic::getLevel).orElse(null);
+    }
+
+    private Map<Long, Long> popularityByTopic() {
+        Map<Long, Long> popularity = new HashMap<>();
+        for (Object[] row : enrollmentRepository.countByTopicExcludingStatus(EnrollmentStatus.DROPPED)) {
+            popularity.put((Long) row[0], ((Number) row[1]).longValue());
+        }
+        return popularity;
+    }
+
+    private Map<Long, Long> lessonCountByTopic(List<Topic> topics) {
+        Map<Long, Long> counts = new HashMap<>();
+        lessonRepository.findByTopicIdIn(topics.stream().map(Topic::getTopicId).toList())
+                .forEach(lesson -> counts.merge(lesson.getTopicId(), 1L, Long::sum));
+        return counts;
+    }
+
+    private List<TopicResponse> toResponses(
+            List<Topic> topics, Map<Long, Double> progressByTopic, Set<Long> enrolledTopicIds) {
+        return topics.stream()
+                .map(topic -> toResponse(
+                        topic,
+                        progressByTopic.get(topic.getTopicId()),
+                        enrolledTopicIds.contains(topic.getTopicId())))
+                .toList();
+    }
+
+    private int normalizeLimit(Integer limit, int fallback) {
+        if (limit == null || limit <= 0) {
+            return fallback;
+        }
+        return Math.min(limit, MAX_LIMIT);
+    }
+
+    private List<Topic> filterTopics(List<Topic> topics, String level, String q) {        Level levelFilter = (level == null || level.isBlank()) ? null : parseLevel(level);
+        String keyword = (q == null || q.isBlank()) ? null : q.trim().toLowerCase(Locale.ROOT);
+        if (levelFilter == null && keyword == null) {
+            return topics;
+        }
+        return topics.stream()
+                .filter(topic -> levelFilter == null || topic.getLevel() == levelFilter)
+                .filter(topic -> keyword == null || matchesKeyword(topic, keyword))
+                .toList();
+    }
+
+    private boolean matchesKeyword(Topic topic, String keyword) {
+        return containsKeyword(topic.getTitle(), keyword)
+                || containsKeyword(topic.getDescription(), keyword);
+    }
+
+    private boolean containsKeyword(String value, String keyword) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
     public TopicResponse get(UserPrincipal principal, Long topicId) {
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TOPIC_NOT_FOUND));
-        return toResponse(topic);
+        if (principal.getRole() == Role.TEACHER) {
+            return toResponse(topic);
+        }
+        Student student = studentService.getOrCreateStudent(principal.getUserId());
+        Map<Long, Double> progressByTopic = progressService.topicProgressPercents(
+                student.getStudentId(), List.of(topicId));
+        return toResponse(
+                topic,
+                progressByTopic.get(topicId),
+                progressService.enrolledTopicIds(student.getStudentId()).contains(topicId));
     }
 
     @Transactional
@@ -182,6 +387,12 @@ public class TopicService {
     public TopicResponse toResponse(Topic topic) {
         long lessonCount = lessonRepository.countByTopicId(topic.getTopicId());
         return TopicResponse.from(topic, lessonCount, resolveTeacherName(topic.getTeacherId()));
+    }
+
+    public TopicResponse toResponse(Topic topic, Double progressPercent, Boolean enrolled) {
+        long lessonCount = lessonRepository.countByTopicId(topic.getTopicId());
+        return TopicResponse.from(
+                topic, lessonCount, resolveTeacherName(topic.getTeacherId()), progressPercent, enrolled);
     }
 
     private String resolveTeacherName(Long teacherId) {

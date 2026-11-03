@@ -28,6 +28,7 @@ import com.example.BaoEng.repository.MinigameQuestionRepository;
 import com.example.BaoEng.repository.MinigameRepository;
 import com.example.BaoEng.security.UserPrincipal;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -155,7 +156,7 @@ public class MinigameService {
                 .isPassed(isPassed)
                 .build());
 
-        saveLessonProgress(student.getStudentId(), lesson, score, isPassed);
+        saveLessonProgress(student.getStudentId(), lesson, score, isPassed, request.durationSeconds());
 
         boolean lessonCompleted = isLessonCompleted(student.getStudentId(), lesson.getLessonId());
         double topicProgressPercent = progressService.topicProgressPercent(
@@ -172,19 +173,32 @@ public class MinigameService {
     }
 
     /** Ghi bản ghi lesson_progress mới (mỗi lần nộp bài là một attempt mới). */
-    private void saveLessonProgress(Long studentId, Lesson lesson, double score, boolean isPassed) {
+    private void saveLessonProgress(
+            Long studentId, Lesson lesson, double score, boolean isPassed, Integer durationSeconds) {
         Optional<LessonProgress> latest = lessonProgressRepository
                 .findTopByStudentIdAndLessonIdOrderByAttemptNumberDesc(studentId, lesson.getLessonId());
         int attemptNumber = latest.map(p -> p.getAttemptNumber() + 1).orElse(1);
 
+        LocalDateTime now = LocalDateTime.now();
         LessonProgress progress = LessonProgress.builder()
                 .studentId(studentId)
                 .lessonId(lesson.getLessonId())
                 .attemptNumber(attemptNumber)
                 .status(isPassed ? LessonProgressStatus.COMPLETED : LessonProgressStatus.IN_PROGRESS)
                 .completionPercent(BigDecimal.valueOf(score))
+                .timeSpentMinutes(toMinutes(durationSeconds))
+                .completedAt(isPassed ? now : null)
+                .lastActivityAt(now)
                 .build();
         lessonProgressRepository.save(progress);
+    }
+
+    /** Lam tron len: 40 giay => 1 phut, tranh mat thoi gian hoc ngan. */
+    private int toMinutes(Integer durationSeconds) {
+        if (durationSeconds == null || durationSeconds <= 0) {
+            return 0;
+        }
+        return (durationSeconds + 59) / 60;
     }
 
     /** Bài học hoàn thành khi sinh viên đạt ngưỡng ở TẤT CẢ các minigame đã xuất bản. */

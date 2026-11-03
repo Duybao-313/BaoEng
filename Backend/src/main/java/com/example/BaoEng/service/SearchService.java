@@ -5,11 +5,15 @@ import com.example.BaoEng.dto.SearchResponse;
 import com.example.BaoEng.dto.TopicResponse;
 import com.example.BaoEng.entity.Teacher;
 import com.example.BaoEng.entity.Topic;
+import com.example.BaoEng.enums.Level;
 import com.example.BaoEng.enums.Role;
+import com.example.BaoEng.exception.BusinessException;
+import com.example.BaoEng.exception.ErrorCode;
 import com.example.BaoEng.repository.LessonRepository;
 import com.example.BaoEng.repository.TopicRepository;
 import com.example.BaoEng.security.UserPrincipal;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -36,36 +40,58 @@ public class SearchService {
         this.topicService = topicService;
     }
 
-    public SearchResponse search(UserPrincipal principal, String q) {
+    public SearchResponse search(UserPrincipal principal, String q, String level) {
         if (q == null || q.isBlank()) {
             return new SearchResponse(List.of(), List.of());
         }
         String keyword = q.trim();
+        Level levelFilter = parseLevel(level);
 
-        List<TopicResponse> topics;
-        List<LessonResponse> lessons;
-
+        List<Topic> scopedTopics;
         if (principal.getRole() == Role.TEACHER) {
             Teacher teacher = teacherService.getOrCreateTeacher(principal.getUserId());
-            topics = topicRepository
-                    .findByTeacherIdAndTitleContainingIgnoreCaseOrderByCreatedAtDesc(teacher.getTeacherId(), keyword)
-                    .stream().map(topicService::toResponse).toList();
-
-            Set<Long> topicIds = topicRepository.findByTeacherIdOrderByCreatedAtDesc(teacher.getTeacherId()).stream()
-                    .map(Topic::getTopicId)
-                    .collect(Collectors.toSet());
-            lessons = lessonRepository.findByTitleContainingIgnoreCaseOrderByCreatedAtDesc(keyword).stream()
-                    .filter(l -> topicIds.contains(l.getTopicId()))
-                    .map(LessonResponse::from)
-                    .toList();
+            scopedTopics = topicRepository.findByTeacherIdOrderByCreatedAtDesc(teacher.getTeacherId());
         } else {
-            topics = topicRepository.findByTitleContainingIgnoreCaseOrderByCreatedAtDesc(keyword).stream()
-                    .map(topicService::toResponse).toList();
-            lessons = lessonRepository.findByTitleContainingIgnoreCaseOrderByCreatedAtDesc(keyword).stream()
-                    .map(LessonResponse::from)
-                    .toList();
+            scopedTopics = topicRepository.findAllByOrderByCreatedAtDesc();
         }
 
+        Set<Long> allowedTopicIds = scopedTopics.stream()
+                .filter(topic -> levelFilter == null || topic.getLevel() == levelFilter)
+                .map(Topic::getTopicId)
+                .collect(Collectors.toSet());
+
+        List<TopicResponse> topics = scopedTopics.stream()
+                .filter(topic -> allowedTopicIds.contains(topic.getTopicId()))
+                .filter(topic -> matchesKeyword(topic, keyword))
+                .map(topicService::toResponse)
+                .toList();
+
+        List<LessonResponse> lessons = lessonRepository
+                .findByTitleContainingIgnoreCaseOrderByCreatedAtDesc(keyword).stream()
+                .filter(lesson -> allowedTopicIds.contains(lesson.getTopicId()))
+                .map(LessonResponse::from)
+                .toList();
+
         return new SearchResponse(topics, lessons);
+    }
+
+    private Level parseLevel(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Level.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Invalid level: " + value);
+        }
+    }
+
+    private boolean matchesKeyword(Topic topic, String keyword) {
+        return containsKeyword(topic.getTitle(), keyword)
+                || containsKeyword(topic.getDescription(), keyword);
+    }
+
+    private boolean containsKeyword(String value, String keyword) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(keyword.toLowerCase(Locale.ROOT));
     }
 }

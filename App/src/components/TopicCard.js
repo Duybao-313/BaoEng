@@ -1,13 +1,13 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
-import { LevelChip, ProgressBar } from "./ui";
+import { HighlightedText, LevelChip, ProgressBar } from "./ui";
 
 /**
  * The chu de trong danh sach (Trang chu / Tim kiem).
- * @param {{ topic: object, onPress?: () => void }} props
+ * @param {{ topic: object, onPress?: () => void, highlight?: string }} props
  */
-export function TopicCard({ topic, onPress }) {
+export function TopicCard({ topic, onPress, highlight }) {
   const completedText =
     topic.completedLessons !== undefined
       ? `${topic.completedLessons}/${topic.totalLessons ?? topic.lessonCount} bài học`
@@ -21,9 +21,12 @@ export function TopicCard({ topic, onPress }) {
     >
       <View style={styles.header}>
         <View style={styles.titleWrap}>
-          <Text style={styles.title} numberOfLines={2}>
-            {topic.title}
-          </Text>
+          <HighlightedText
+            text={topic.title}
+            keyword={highlight}
+            style={styles.title}
+            numberOfLines={2}
+          />
         </View>
         <LevelChip level={topic.level} />
       </View>
@@ -43,7 +46,7 @@ export function TopicCard({ topic, onPress }) {
         <Text style={styles.meta}>{completedText}</Text>
       </View>
 
-      {topic.progressPercent !== undefined ? (
+      {topic.progressPercent != null ? (
         <ProgressBar value={topic.progressPercent} showLabel />
       ) : null}
     </Pressable>
