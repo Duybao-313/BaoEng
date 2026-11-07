@@ -6,22 +6,22 @@ Cau truc chuan cho Expo Router (SDK 57) + React Native, theo huong **layered (th
 
 ```text
 src/
-├── app/                        # CHI chua route — moi file .js trong day la 1 man hinh
-│   ├── _layout.js              # Root layout (Stack + Providers)
-│   ├── index.js                # Route "/"
-│   ├── +not-found.js           # Route 404
+├── app/                        # CHI chua route — moi file .jsx trong day la 1 man hinh
+│   ├── _layout.jsx             # Root layout (Stack + Providers)
+│   ├── index.jsx               # Route "/"
+│   ├── +not-found.jsx          # Route 404
 │   ├── (auth)/                 # Nhom route khong hien tren URL
-│   │   ├── _layout.js
-│   │   ├── sign-in.js          # Man hinh dang nhap (theo mockup)
-│   │   └── sign-up.js
+│   │   ├── _layout.jsx
+│   │   ├── sign-in.jsx         # Man hinh dang nhap (theo mockup)
+│   │   └── sign-up.jsx
 │   ├── (tabs)/                 # Nhom route co tab bar
-│   │   ├── _layout.js          # <Tabs> config
-│   │   ├── index.js            # tab "Hoc"
-│   │   ├── vocabulary.js       # tab "Tu vung"
-│   │   ├── practice.js         # tab "Luyen tap"
-│   │   └── profile.js          # tab "Ca nhan"
+│   │   ├── _layout.jsx         # <Tabs> config
+│   │   ├── index.jsx           # tab "Hoc"
+│   │   ├── vocabulary.jsx      # tab "Tu vung"
+│   │   ├── practice.jsx        # tab "Luyen tap"
+│   │   └── profile.jsx         # tab "Ca nhan"
 │   └── (modals)/
-│       └── settings.js         # Trinh bay dang modal (presentation: 'modal')
+│       └── settings.jsx        # Trinh bay dang modal (presentation: 'modal')
 │
 ├── api/                        # Tang giao tiep Backend (khong chua JSX)
 │   ├── client.js               # fetch wrapper: timeout, ApiError, JSON
@@ -33,7 +33,7 @@ src/
 ├── components/                 # UI tai su dung
 │   ├── ui/                     # Primitive: Alert, Button, Card, Checkbox,
 │   │   └── index.js            #   Divider, Icon, Input, ProgressBar,
-│   │                           #   ProgressRing, Screen
+│   │                           #   ProgressRing, Screen (.jsx)
 │   └── layout/                 # AppHeader (app bar dung chung moi man hinh)
 │
 ├── constants/                  # Gia tri bat bien
@@ -48,7 +48,7 @@ src/
 │   └── index.js
 │
 ├── providers/                  # React Context toan cuc
-│   ├── AppProviders.js         # Gom SafeAreaProvider (+ QueryClient, Auth... sau nay)
+│   ├── AppProviders.jsx        # Gom SafeAreaProvider (+ QueryClient, Auth... sau nay)
 │   └── index.js
 │
 ├── features/                   # Module theo nghiep vu (feature-first)
@@ -76,29 +76,32 @@ Thu muc `assets/` nam o **goc project** (`App/assets/`) vi `app.json` dang tro t
 3. **Nhom route** dung ngoac don `(tabs)`, `(auth)` — khong xuat hien tren URL.
 4. **File rieng tu** trong `app/` (khong phai route) nen dat ngoai `app/` hoac them `_`
    (vi du `_components/`) — Expo Router bo qua file bat dau bang `_`.
-5. **Dat tên file:** component `PascalCase.js`, hook `useSomething.js`, util `camelCase.js`,
-   route `kebab-case.js`.
+5. **Dat tên file:** file **co JSX** dung `.jsx` — component `PascalCase.jsx`, route
+   `kebab-case.jsx`; file **logic thuan** (khong JSX) dung `.js` — hook `useSomething.js`,
+   util `camelCase.js`, barrel `index.js`. Metro/Babel xu ly JSX trong ca `.js` lan `.jsx`,
+   nhung tach theo extension de doc code ro rang. **Import luon bo qua extension** nen doi
+   qua lai giua `.js`/`.jsx` khong phai sua import.
 6. **Khong fetch truc tiep trong component** — di qua `api/` + `hooks/`.
 7. **Design tokens** chi lay tu `constants/theme.js` (nhom `colors`), khong hardcode mau.
-8. **Icon** chi dung component `Icon` (`components/ui/Icon.js`) — khong import truc tiep
+8. **Icon** chi dung component `Icon` (`components/ui/Icon.jsx`) — khong import truc tiep
    tu `@expo/vector-icons`, de sau nay doi bo icon chi sua mot cho.
 
 ## Man hinh da co
 
-| Route      | File                    | Ghi chu                                                  |
-| ---------- | ----------------------- | -------------------------------------------------------- |
-| `/`        | `app/index.js`          | Trang chao, co CTA sang dang nhap                        |
-| `/sign-in` | `app/(auth)/sign-in.js` | Dang nhap: validate, loading, loi, social, quen mat khau |
-| `/sign-up` | `app/(auth)/sign-up.js` | Dang ky tai khoan hoc vien                               |
-| `*`        | `app/+not-found.js`     | 404                                                      |
+| Route      | File                     | Ghi chu                                                  |
+| ---------- | ------------------------ | -------------------------------------------------------- |
+| `/`        | `app/index.jsx`          | Trang chao, co CTA sang dang nhap                        |
+| `/sign-in` | `app/(auth)/sign-in.jsx` | Dang nhap: validate, loading, loi, social, quen mat khau |
+| `/sign-up` | `app/(auth)/sign-up.jsx` | Dang ky tai khoan hoc vien                               |
+| `*`        | `app/+not-found.jsx`     | 404                                                      |
 
 Header mac dinh cua Stack da tat (`headerShown: false`) — moi man hinh tu ve
 `<AppHeader />` de giong mockup.
 
 ## Them mot man hinh moi
 
-```js
-// src/app/(tabs)/vocabulary.js
+```jsx
+// src/app/(tabs)/vocabulary.jsx
 import { StyleSheet, View } from "react-native";
 
 import { AppHeader } from "../../components/layout/AppHeader";
@@ -131,6 +134,6 @@ Man hinh co form thi tach logic ra hook trong `src/features/<feature>/hooks/`
 - **Path alias** `@/` de bo import `../../`: them `jsconfig.json` + `babel-plugin-module-resolver`.
 - **State toan cuc:** `npm i zustand` -> dat store trong `src/store/`.
 - **Data fetching:** `npm i @tanstack/react-query` -> them `QueryClientProvider` vao `AppProviders`.
-- **Tab bar:** dien vao `app/(tabs)/_layout.js` + cac tab; luu y `(tabs)/index.js`
-  se trung route `/` voi `app/index.js` — can doi trang chao vao trong `(tabs)`.
-- **TypeScript:** doi `.js` -> `.tsx` va giu nguyen cay thu muc.
+- **Tab bar:** dien vao `app/(tabs)/_layout.jsx` + cac tab; luu y `(tabs)/index.jsx`
+  se trung route `/` voi `app/index.jsx` — can doi trang chao vao trong `(tabs)`.
+- **TypeScript:** doi `.jsx` -> `.tsx` va `.js` -> `.ts`, giu nguyen cay thu muc.
